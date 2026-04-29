@@ -14,3 +14,5 @@
 ## 사이클 로그
 [2026-04-30 04:20] local-bootstrap — START
 [2026-04-30 04:26] local-bootstrap — PASS | 커밋: 559512a | PR: https://github.com/seulnan/java-midterm-project/pull/1
+[2026-04-30 04:35] dev-profile-supabase — START
+[2026-04-30 04:38] dev-profile-supabase — PASS | 커밋: d43aabe | PR: https://github.com/seulnan/java-midterm-project/pull/2
