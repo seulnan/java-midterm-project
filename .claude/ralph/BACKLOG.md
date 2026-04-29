@@ -2,7 +2,7 @@
 
 ## 구현 순서 (위에서 아래로)
 
-- [ ] local-bootstrap          — settings.gradle에 learning-api 추가, 모듈 골격, application-local.yml, bootRun 부팅 확인
+- [x] local-bootstrap          — settings.gradle에 learning-api 추가, 모듈 골격, application-local.yml, bootRun 부팅 확인 (PR #1)
 - [ ] dev-profile-supabase     — application-dev.yml + .env 연동 + Supabase PostgreSQL 연결 검증
 - [ ] domain-answer            — Answer 엔티티 + Repository + Service + 제출 API + 단위 테스트
 - [ ] domain-wrongnote-sm2     — WrongNote + SM-2 알고리즘 + 복습 API + 단위 테스트 (경계값 포함)
