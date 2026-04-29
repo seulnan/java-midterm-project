@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    # SUPABASE_DB_URL 형식: postgresql://username:password@host:port/db
+    # JDBC 형식으로 변환 후 사용. 호스트는 pooler 주소.
+    url: "jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require"
+    username: "postgres.jdbyxkkqhkspcxpbvyys"
+    password: "${SUPABASE_DB_PASSWORD}"
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: Hikari-learning
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 5000
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  mail:
+    host: "${SMTP_HOST}"
+    port: 587
+    username: "${SMTP_USERNAME}"
+    password: "${SMTP_PASSWORD}"
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+learning:
+  mail:
+    sender: smtp

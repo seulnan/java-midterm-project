@@ -102,6 +102,17 @@ maeilmail.learning
 - Repository: Spring Data JPA. 쿼리 정의.
 - Event Listener: 비동기(@Async) 부수 효과 처리.
 
+## GitHub / gh CLI 주의사항
+- git remote: origin=seulnan/java-midterm-project (fork), upstream=maeil-mail/maeil-mail-be (원본)
+- gh CLI 기본 컨텍스트가 upstream을 가리키므로 PR 생성 시 반드시 `--repo seulnan/java-midterm-project` 명시
+- 브랜치 전략: 각 feature 브랜치는 이전 feature 브랜치 기반으로 생성 (PR 머지 전까지 main에 변경 없음)
+- PR 명령 템플릿:
+  ```
+  gh pr create --repo seulnan/java-midterm-project --base main --head feature/{slug} \
+    --title "{prefix}: {요약}" \
+    --body-file .claude/ralph/pr-bodies/{slug}.md
+  ```
+
 ## 코드 컨벤션 (CONVENTIONS.md 우선)
 - Lombok: @Getter, @RequiredArgsConstructor, @NoArgsConstructor
 - 생성자 주입만 사용
