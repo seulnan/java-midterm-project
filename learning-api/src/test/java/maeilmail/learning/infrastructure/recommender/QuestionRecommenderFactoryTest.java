@@ -1,6 +1,7 @@
 package maeilmail.learning.infrastructure.recommender;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import maeilmail.learning.domain.userstat.Difficulty;
@@ -18,13 +19,16 @@ class QuestionRecommenderFactoryTest {
                 new MediumRecommender(),
                 new HardRecommender()
         ));
+        factory.init();
     }
 
     @Test
     void EASY_난이도_추천기_생성() {
         QuestionRecommender recommender = factory.create(Difficulty.EASY);
         assertThat(recommender.difficulty()).isEqualTo(Difficulty.EASY);
-        assertThat(recommender.recommend("user@test.com", 5)).hasSize(5);
+        List<Long> ids = recommender.recommend("user@test.com", 5);
+        assertThat(ids).hasSize(5);
+        assertThat(ids).allMatch(id -> id >= 1 && id <= 50);
     }
 
     @Test
@@ -48,5 +52,12 @@ class QuestionRecommenderFactoryTest {
         List<Long> easy = factory.create(Difficulty.EASY).recommend("u", 5);
         List<Long> hard = factory.create(Difficulty.HARD).recommend("u", 5);
         assertThat(easy).doesNotContainAnyElementsOf(hard);
+    }
+
+    @Test
+    void 지원하지_않는_난이도_예외_발생() {
+        assertThatThrownBy(() -> factory.create(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("지원하지 않는 난이도");
     }
 }

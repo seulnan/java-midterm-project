@@ -69,7 +69,8 @@ public class WrongNote {
     }
 
     public void applyReview(boolean isCorrect) {
-        this.lastReviewedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.lastReviewedAt = now;
         this.reviewCount++;
 
         if (isCorrect) {
@@ -80,6 +81,6 @@ public class WrongNote {
             this.intervalDays = 1;
             this.easeFactor = Math.max(1.3, easeFactor - 0.2);
         }
-        this.nextReviewAt = LocalDateTime.now().plusDays(intervalDays);
+        this.nextReviewAt = now.plusDays(intervalDays);
     }
 }

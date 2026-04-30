@@ -1,6 +1,7 @@
 package maeilmail.learning.infrastructure.mail;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +25,7 @@ public class ReviewMailScheduler {
     @Scheduled(cron = "0 0 6 * * *", zone = "Asia/Seoul")
     @Transactional(readOnly = true)
     public void sendReviewReminders() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
         List<WrongNote> dueNotes = wrongNoteRepository.findAllByNextReviewAtLessThanEqual(now);
 
         dueNotes.stream()
