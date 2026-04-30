@@ -1,5 +1,6 @@
 package maeilmail.learning.api;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import maeilmail.learning.common.ApiResponse;
@@ -39,7 +40,7 @@ public class WrongNoteController {
     @PostMapping("/{id}/review")
     public ApiResponse<WrongNoteDto> review(
             @PathVariable Long id,
-            @RequestBody ReviewRequest request) {
+            @Valid @RequestBody ReviewRequest request) {
         return ApiResponse.ok(wrongNoteService.review(id, request));
     }
 }

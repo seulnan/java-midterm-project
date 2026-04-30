@@ -41,6 +41,18 @@ class CoursePolicyTest {
     }
 
     @Test
+    void SHORT_INTENSIVE_시도한_문제_제외하고_추천() {
+        Answer attempted = new Answer("user@test.com", 1L, "답", true, 90, 1000L);
+        given(answerRepository.findTop20ByUserEmailOrderByCreatedAtDesc("user@test.com"))
+                .willReturn(List.of(attempted));
+
+        List<Long> ids = shortIntensivePolicy.recommendQuestionIds("user@test.com", 3);
+
+        assertThat(ids).doesNotContain(1L);
+        assertThat(ids).hasSize(3);
+    }
+
+    @Test
     void HARD_ONLY_HARD_레벨_아닌_사용자는_빈_목록() {
         UserStat stat = UserStat.create("user@test.com");
         given(userStatRepository.findByUserEmail("user@test.com")).willReturn(Optional.of(stat));
@@ -48,6 +60,17 @@ class CoursePolicyTest {
         List<Long> ids = hardOnlyPolicy.recommendQuestionIds("user@test.com", 5);
 
         assertThat(ids).isEmpty();
+    }
+
+    @Test
+    void HARD_ONLY_HARD_레벨_사용자는_문제_추천() {
+        UserStat stat = UserStat.createHard("user@test.com");
+        given(userStatRepository.findByUserEmail("user@test.com")).willReturn(Optional.of(stat));
+
+        List<Long> ids = hardOnlyPolicy.recommendQuestionIds("user@test.com", 5);
+
+        assertThat(ids).hasSize(5);
+        assertThat(ids).allMatch(id -> id >= 101 && id <= 150);
     }
 
     @Test
@@ -59,6 +82,17 @@ class CoursePolicyTest {
         List<Long> ids = weaknessFocusedPolicy.recommendQuestionIds("user@test.com", 5);
 
         assertThat(ids).contains(42L);
+    }
+
+    @Test
+    void WEAKNESS_FOCUSED_오답_없으면_기본_문제_반환() {
+        given(answerRepository.findTop20ByUserEmailOrderByCreatedAtDesc("user@test.com"))
+                .willReturn(List.of());
+
+        List<Long> ids = weaknessFocusedPolicy.recommendQuestionIds("user@test.com", 5);
+
+        assertThat(ids).hasSize(5);
+        assertThat(ids).allMatch(id -> id >= 1 && id <= 50);
     }
 
     @Test

@@ -38,7 +38,6 @@ public class CourseEnrollment {
     @Column(updatable = false)
     private LocalDateTime startedAt;
 
-    @Column
     private LocalDateTime endedAt;
 
     public static CourseEnrollment create(String userEmail, CourseType courseType) {

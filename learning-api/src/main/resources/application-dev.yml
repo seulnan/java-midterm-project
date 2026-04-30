@@ -1,9 +1,7 @@
 spring:
   datasource:
-    # SUPABASE_DB_URL 형식: postgresql://username:password@host:port/db
-    # JDBC 형식으로 변환 후 사용. 호스트는 pooler 주소.
-    url: "jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require"
-    username: "postgres.jdbyxkkqhkspcxpbvyys"
+    url: "${SUPABASE_DB_JDBC_URL}"
+    username: "${SUPABASE_DB_USERNAME}"
     password: "${SUPABASE_DB_PASSWORD}"
     driver-class-name: org.postgresql.Driver
     hikari:

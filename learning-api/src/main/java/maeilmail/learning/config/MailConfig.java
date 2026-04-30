@@ -13,7 +13,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 class MailConfig {
 
     @Bean
-    @Profile({"local", "test"})
+    @Profile("!dev")
     public LearningMailSender mockMailSender() {
         return new MockMailSender();
     }

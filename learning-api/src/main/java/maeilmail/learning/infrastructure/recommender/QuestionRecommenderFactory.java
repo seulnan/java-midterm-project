@@ -1,5 +1,7 @@
 package maeilmail.learning.infrastructure.recommender;
 
+import jakarta.annotation.PostConstruct;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -13,17 +15,20 @@ import org.springframework.stereotype.Component;
 public class QuestionRecommenderFactory {
 
     private final List<QuestionRecommender> recommenders;
+    private Map<Difficulty, QuestionRecommender> recommenderMap;
 
-    private Map<Difficulty, QuestionRecommender> recommenderMap() {
-        return recommenders.stream()
-                .collect(Collectors.toMap(QuestionRecommender::difficulty, Function.identity()));
+    @PostConstruct
+    void init() {
+        recommenderMap = Collections.unmodifiableMap(
+                recommenders.stream()
+                        .collect(Collectors.toMap(QuestionRecommender::difficulty, Function.identity()))
+        );
     }
 
     public QuestionRecommender create(Difficulty difficulty) {
-        QuestionRecommender recommender = recommenderMap().get(difficulty);
+        QuestionRecommender recommender = recommenderMap.get(difficulty);
         if (recommender == null) {
-            // 매핑 누락 시 EASY 반환 (안전 기본값)
-            return recommenderMap().get(Difficulty.EASY);
+            throw new IllegalArgumentException("지원하지 않는 난이도입니다: " + difficulty);
         }
         return recommender;
     }

@@ -1,14 +1,14 @@
 package maeilmail.learning.infrastructure.mail;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class MockMailSender implements LearningMailSender {
 
-    private final List<String> sentLogs = new ArrayList<>();
+    private final List<String> sentLogs = new CopyOnWriteArrayList<>();
 
     @Override
     public void send(String to, String subject, String body) {

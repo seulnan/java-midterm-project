@@ -36,14 +36,14 @@ public class LegacyQuestionAdapter implements LegacyQuestionPort {
         return ids.stream()
                 .map(store::get)
                 .filter(q -> q != null)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
     public List<LegacyQuestion> findByCategory(String category) {
         return store.values().stream()
                 .filter(q -> q.category().equalsIgnoreCase(category))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private Map<Long, LegacyQuestion> buildInMemoryStore() {

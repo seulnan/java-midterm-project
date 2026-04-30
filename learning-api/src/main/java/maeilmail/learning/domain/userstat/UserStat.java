@@ -66,6 +66,12 @@ public class UserStat {
         return stat;
     }
 
+    public static UserStat createHard(String userEmail) {
+        UserStat stat = create(userEmail);
+        stat.currentDifficulty = Difficulty.HARD;
+        return stat;
+    }
+
     public void recordAnswer(boolean isCorrect, long responseTimeMs) {
         this.totalAttempts++;
         if (isCorrect) {
@@ -78,10 +84,10 @@ public class UserStat {
     }
 
     private void adjustDifficulty() {
-        if (totalAttempts < 20) {
+        // 20문제 이상 + 5문제마다 한 번만 평가 — 연속 업그레이드 방지
+        if (totalAttempts < 20 || totalAttempts % 5 != 0) {
             return;
         }
-        // 최근 20문제를 전체 정답률로 근사 (정확한 최근 20개는 Repository 쿼리 필요)
         double recentAccuracy = (double) correctCount / totalAttempts;
         if (recentAccuracy > 0.8) {
             this.currentDifficulty = currentDifficulty.upgrade();

@@ -15,7 +15,7 @@ public class HardRecommender implements QuestionRecommender {
 
     @Override
     public List<Long> recommend(String userEmail, int limit) {
-        // HARD 문제: ID 101~200 범위
-        return LongStream.rangeClosed(101, 200).limit(limit).boxed().toList();
+        // HARD 문제: ID 101~150 범위 (EASY 1~50, MEDIUM 51~100과 균등 50개 풀)
+        return LongStream.rangeClosed(101, 150).limit(limit).boxed().toList();
     }
 }
