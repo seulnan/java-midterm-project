@@ -14,4 +14,6 @@ public interface WrongNoteRepository extends JpaRepository<WrongNote, Long> {
     Page<WrongNote> findByUserEmail(String userEmail, Pageable pageable);
 
     List<WrongNote> findByUserEmailAndNextReviewAtLessThanEqual(String userEmail, LocalDateTime now);
+
+    List<WrongNote> findAllByNextReviewAtLessThanEqual(LocalDateTime now);
 }
