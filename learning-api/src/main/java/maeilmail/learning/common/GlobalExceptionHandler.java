@@ -1,9 +1,11 @@
 package maeilmail.learning.common;
 
 import lombok.extern.slf4j.Slf4j;
+import maeilmail.learning.common.exception.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -22,10 +24,16 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(ErrorCode.INVALID_REQUEST.name(), message);
     }
 
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ApiResponse<?> handleMissingParam(MissingServletRequestParameterException e) {
+        return ApiResponse.fail(ErrorCode.INVALID_REQUEST.name(), e.getParameterName() + " 파라미터가 필요합니다.");
+    }
+
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ApiResponse<?> handleNotFound(IllegalArgumentException e) {
-        return ApiResponse.fail("NOT_FOUND", e.getMessage());
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ApiResponse<?> handleNotFound(ResourceNotFoundException e) {
+        return ApiResponse.fail(ErrorCode.NOT_FOUND.name(), e.getMessage());
     }
 
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)

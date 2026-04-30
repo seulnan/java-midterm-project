@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import maeilmail.learning.common.exception.ResourceNotFoundException;
 import maeilmail.learning.domain.course.dto.CourseEnrollmentDto;
 import maeilmail.learning.domain.course.dto.EnrollRequest;
 import maeilmail.learning.domain.course.policy.CoursePolicy;
@@ -40,7 +41,7 @@ public class CourseService {
     @Transactional(readOnly = true)
     public List<Long> getTodayQuestions(String userEmail) {
         CourseEnrollment enrollment = enrollmentRepository.findByUserEmailAndEndedAtIsNull(userEmail)
-                .orElseThrow(() -> new IllegalArgumentException("활성 코스가 없습니다. email=" + userEmail));
+                .orElseThrow(() -> new ResourceNotFoundException("활성 코스가 없습니다. email=" + userEmail));
 
         CoursePolicy policy = policyMap.get(enrollment.getCourseType());
         if (policy == null) {

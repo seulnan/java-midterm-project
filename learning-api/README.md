@@ -179,19 +179,184 @@ curl http://localhost:8081/actuator/health
 ### 테스트 실행
 
 ```bash
-# 전체 테스트
+# 전체 테스트 (118개)
 ./gradlew :learning-api:test
 
-# 도메인별 단위 테스트
-./gradlew :learning-api:test --tests "maeilmail.learning.domain.answer.*"
-./gradlew :learning-api:test --tests "maeilmail.learning.domain.wrongnote.*"
-./gradlew :learning-api:test --tests "maeilmail.learning.domain.userstat.*"
+# 계층별 실행
+./gradlew :learning-api:test --tests "maeilmail.learning.domain.*"
+./gradlew :learning-api:test --tests "maeilmail.learning.api.*"
+./gradlew :learning-api:test --tests "maeilmail.learning.integration.*"
 ./gradlew :learning-api:test --tests "maeilmail.learning.event.*"
-./gradlew :learning-api:test --tests "maeilmail.learning.infrastructure.recommender.*"
+./gradlew :learning-api:test --tests "maeilmail.learning.infrastructure.*"
 ./gradlew :learning-api:test --tests "maeilmail.learning.adapter.*"
 ```
 
 **요구 사항**: Java 17+, Gradle 8.x
+
+---
+
+## 테스트 설계 원칙
+
+### 계층 분리 (Testing Pyramid)
+
+```
+          ┌─────────────┐
+          │  E2E / 통합  │  6개  @SpringBootTest — 실제 Spring 컨텍스트, 전체 흐름
+          ├─────────────┤
+          │  Controller │ 15개  @WebMvcTest — HTTP 계층, 상태 코드, 직렬화
+          ├─────────────┤
+          │  Repository │ 22개  @DataJpaTest — 실제 SQL, 제약 조건, 쿼리
+          ├─────────────┤
+          │   Service   │ 30개  Mockito — 비즈니스 로직 격리
+          ├─────────────┤
+          │   Domain    │ 45개  순수 Java — 엔티티·알고리즘·열거형
+          └─────────────┘
+```
+
+| 계층 | 도구 | Spring 컨텍스트 | 속도 |
+|------|------|----------------|------|
+| 엔티티 / 알고리즘 | JUnit 5 + AssertJ | 없음 | 즉시 |
+| 서비스 | Mockito `@ExtendWith` | 없음 | 빠름 |
+| Repository | `@DataJpaTest` + H2 | JPA 슬라이스 | 중간 |
+| Controller | `@WebMvcTest` + MockMvc | MVC 슬라이스 | 중간 |
+| E2E | `@SpringBootTest(NONE)` + H2 | 전체 | 느림 |
+
+### 원칙 1 — 계층별 책임 격리
+
+```java
+// 서비스 테스트: Repository는 Mock → 비즈니스 로직만 검증
+@ExtendWith(MockitoExtension.class)
+class WrongNoteServiceTest {
+    @Mock WrongNoteRepository wrongNoteRepository;
+    @InjectMocks WrongNoteService wrongNoteService;
+
+    @Test
+    void registerOrSkip_이미_존재하면_저장_스킵() {
+        given(wrongNoteRepository.findByUserEmailAndQuestionId(...))
+            .willReturn(Optional.of(existing));
+        wrongNoteService.registerOrSkip("u@t.com", 1L);
+        verify(wrongNoteRepository, never()).save(any()); // save 미호출 검증
+    }
+}
+```
+
+```java
+// Repository 테스트: 실제 H2 DB → SQL·제약 조건 검증
+@DataJpaTest
+@EnableJpaAuditing
+class WrongNoteRepositoryTest {
+    @Test
+    void 동일_user_question_중복_저장_시_예외() {
+        repository.saveAndFlush(WrongNote.create("user@t.com", 1L));
+        assertThatThrownBy(() -> repository.saveAndFlush(WrongNote.create("user@t.com", 1L)))
+            .isInstanceOf(DataIntegrityViolationException.class); // UniqueConstraint 실제 검증
+    }
+}
+```
+
+### 원칙 2 — 경계값 우선 테스트
+
+SM-2 알고리즘의 `easeFactor` 하한(1.3), 난이도 조정 임계값(80%/40%),  
+20문제 미만에서의 조정 억제 등 **코드에서 가장 버그가 나기 쉬운 경계**를 집중 검증합니다.
+
+```java
+@Test
+void easeFactor는_1_3_아래로_떨어지지_않는다() {
+    WrongNote note = WrongNote.create("user@test.com", 1L);
+    for (int i = 0; i < 20; i++) note.applyReview(false); // 20번 연속 오답
+    assertThat(note.getEaseFactor()).isGreaterThanOrEqualTo(1.3); // 하한 고정
+}
+
+@ParameterizedTest
+@CsvSource({"20,true", "25,true", "21,false", "22,false"})
+void 배수5_시도에서만_난이도_평가(int attempts, boolean shouldAdjust) { ... }
+```
+
+### 원칙 3 — 행동 기반 검증 (BDD 스타일)
+
+Mockito `given/when/verify` 패턴으로 **호출 여부와 횟수**까지 검증합니다.
+
+```java
+// "정답이면 오답노트를 삭제해야 한다"
+@Test
+void 정답_이벤트_수신_시_오답노트_제거() {
+    AnswerSubmittedEvent event = new AnswerSubmittedEvent(2L, "user@test.com", 10L, true, 800L);
+    listener.handle(event);
+    verify(wrongNoteService).removeIfExists("user@test.com", 10L); // 정확한 메서드 호출 검증
+}
+```
+
+### 원칙 4 — HTTP 계층 명세 검증 (`@WebMvcTest`)
+
+컨트롤러 테스트는 **HTTP 상태 코드, 응답 JSON 구조, 검증 에러**를 검증합니다.  
+서비스는 Mock 처리하여 HTTP 계층에만 집중합니다.
+
+```java
+@Test
+void POST_answers_submittedText_빈_문자열_400() throws Exception {
+    String badJson = """{"questionId": 1, "submittedText": "", ...}""";
+    mockMvc.perform(post("/api/answers")
+            .contentType(MediaType.APPLICATION_JSON).content(badJson))
+        .andExpect(status().isBadRequest()); // Bean Validation → 400 확인
+}
+```
+
+### 원칙 5 — 동시성 시연 테스트
+
+`synchronized` 유무에 따른 결과 차이를 **100 스레드 × 1,000 증가**로 실증합니다.
+
+```java
+@Test
+void unsafe_카운터_손실_발생() throws InterruptedException {
+    // synchronized 없음 → race condition → 최종값 < 100,000
+    assertThat(counter.get()).isLessThan(TOTAL);
+}
+
+@Test
+void safe_카운터_정확한_값() throws InterruptedException {
+    // synchronized 적용 → 정확히 100,000
+    assertThat(counter.get()).isEqualTo(TOTAL);
+}
+```
+
+---
+
+## 테스트 커버리지
+
+### 전체 현황
+
+| 총 테스트 클래스 | 총 테스트 수 | 통과율 |
+|---------------|------------|-------|
+| 24개 | 118개 | 100% |
+
+### 클래스별 테스트 수
+
+| 테스트 클래스 | 종류 | 테스트 수 | 검증 내용 |
+|-------------|------|---------|----------|
+| `WrongNoteTest` | 엔티티 | 5 | SM-2 경계값, easeFactor 하한, 연속 복습 |
+| `UserStatTest` | 엔티티 | 8 | 난이도 임계값, 5배수 조정, 이동 평균 |
+| `DifficultyTest` | 열거형 | 7 | upgrade/downgrade 상·하한 고정 |
+| `AnswerServiceTest` | 서비스 | 3 | 정답/오답 처리, 이벤트 발행 검증 |
+| `WrongNoteServiceTest` | 서비스 | 7 | CRUD, 중복 방지, 예외 처리 |
+| `UserStatServiceTest` | 서비스 | 4 | 신규 생성, 기존 갱신, 404 예외 |
+| `CourseServiceTest` | 서비스 | 4 | 수강신청, 기존 코스 종료, Strategy 디스패치 |
+| `CoursePolicyTest` | 서비스 | 7 | 3가지 Policy 추천 로직, 중복 제외 |
+| `WrongNoteRegistrationListenerTest` | 이벤트 | 2 | 정답/오답 이벤트 → 올바른 서비스 호출 |
+| `UserStatUpdateListenerTest` | 이벤트 | 2 | 이벤트 → UserStat.recordAnswer 호출 |
+| `MailNotificationListenerTest` | 이벤트 | 2 | 오답 시만 메일 발송 |
+| `MockMailSenderTest` | 인프라 | 3 | 발송 기록, 목록 조회 |
+| `QuestionRecommenderFactoryTest` | 인프라 | 5 | Factory 생성, 범위 교차 없음 |
+| `LegacyQuestionAdapterTest` | 어댑터 | 7 | Adapter 패턴 동작, 카테고리 필터 |
+| `UserStatRaceConditionTest` | 동시성 | 2 | unsafe 손실 발생 vs safe 정확성 |
+| `WrongNoteRepositoryTest` | Repository | 6 | UniqueConstraint, 페이징, due 쿼리 |
+| `UserStatRepositoryTest` | Repository | 6 | @Version 초기값, 낙관적 락, 중복 방지 |
+| `AnswerRepositoryTest` | Repository | 4 | Top20 쿼리, 사용자 격리 |
+| `CourseEnrollmentRepositoryTest` | Repository | 5 | 활성 코스 조회, 종료 후 재수강 |
+| `AnswerControllerTest` | Controller | 4 | 201 Created, Bean Validation 400 |
+| `UserStatControllerTest` | Controller | 3 | 200 OK, 404 처리, 파라미터 누락 400 |
+| `WrongNoteControllerTest` | Controller | 4 | 페이지 응답, due 목록, 404 처리 |
+| `CourseControllerTest` | Controller | 4 | 수강신청, 오늘의 문제, 404 처리 |
+| `LearningFlowE2ETest` | E2E | 6 | 오답→노트 생성, SM-2 복습, 코스 재수강, 중복 방지 |
 
 ---
 

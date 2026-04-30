@@ -6,9 +6,11 @@ import maeilmail.learning.common.ApiResponse;
 import maeilmail.learning.domain.answer.AnswerService;
 import maeilmail.learning.domain.answer.dto.SubmitAnswerRequest;
 import maeilmail.learning.domain.answer.dto.SubmitAnswerResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -19,6 +21,7 @@ public class AnswerController {
     private final AnswerService answerService;
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<SubmitAnswerResponse> submit(@Valid @RequestBody SubmitAnswerRequest request) {
         return ApiResponse.ok(answerService.submitAnswer(request));
     }
