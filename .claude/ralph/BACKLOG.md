@@ -12,4 +12,4 @@
 - [x] course-policy-strategy   — CoursePolicy Strategy 3종 + CourseService + 오늘의 추천 API + 테스트 (PR #8)
 - [x] recommender-factory      — QuestionRecommender 인터페이스 + 3 구현체 + QuestionRecommenderFactory (PR #9)
 - [x] adapter-original-domain  — LegacyQuestionPort 인터페이스 + LegacyQuestionAdapter (mail-core Question 연결) (PR #10)
-- [ ] readme-and-final         — README 작성 + 캡처 자리 + 사용자 체크리스트
+- [x] readme-and-final         — README 작성 + 캡처 자리 + 사용자 체크리스트 (PR #11)
