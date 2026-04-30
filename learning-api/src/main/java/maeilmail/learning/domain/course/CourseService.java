@@ -1,5 +1,7 @@
 package maeilmail.learning.domain.course;
 
+import jakarta.annotation.PostConstruct;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -17,15 +19,17 @@ public class CourseService {
 
     private final CourseEnrollmentRepository enrollmentRepository;
     private final List<CoursePolicy> policies;
+    private Map<CourseType, CoursePolicy> policyMap;
 
-    // Factory Map: CourseType → CoursePolicy (Strategy 패턴 디스패치)
-    private Map<CourseType, CoursePolicy> policyMap() {
-        return policies.stream().collect(Collectors.toMap(CoursePolicy::courseType, Function.identity()));
+    @PostConstruct
+    void init() {
+        policyMap = Collections.unmodifiableMap(
+                policies.stream().collect(Collectors.toUnmodifiableMap(CoursePolicy::courseType, Function.identity()))
+        );
     }
 
     @Transactional
     public CourseEnrollmentDto enroll(EnrollRequest request) {
-        // 기존 활성 코스 종료
         enrollmentRepository.findByUserEmailAndEndedAtIsNull(request.userEmail())
                 .ifPresent(CourseEnrollment::end);
 
@@ -38,7 +42,7 @@ public class CourseService {
         CourseEnrollment enrollment = enrollmentRepository.findByUserEmailAndEndedAtIsNull(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("활성 코스가 없습니다. email=" + userEmail));
 
-        CoursePolicy policy = policyMap().get(enrollment.getCourseType());
+        CoursePolicy policy = policyMap.get(enrollment.getCourseType());
         if (policy == null) {
             return List.of();
         }
