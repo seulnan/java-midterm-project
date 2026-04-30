@@ -8,7 +8,7 @@
 - [x] domain-wrongnote-sm2     — WrongNote + SM-2 알고리즘 + 복습 API + 단위 테스트 (경계값 포함) (PR #4)
 - [x] domain-userstat          — UserStat + 동시성 안전 갱신(synchronized + @Version) + Race Condition 시연 테스트 (PR #5)
 - [x] event-observer           — AnswerSubmittedEvent + 3 리스너 (오답노트 / 통계 / 메일 큐잉) + ApplicationEventPublisher (PR #6)
-- [ ] mail-strategy            — LearningMailSender 인터페이스 + Smtp/Mock 구현 + ThreadPoolTaskExecutor + Gmail 발송 통합 테스트
+- [x] mail-strategy            — LearningMailSender 인터페이스 + Smtp/Mock 구현 + ThreadPoolTaskExecutor + Gmail 발송 통합 테스트 (PR #7)
 - [ ] course-policy-strategy   — CoursePolicy Strategy 3종 + CourseService + 오늘의 추천 API + 테스트
 - [ ] recommender-factory      — QuestionRecommender 인터페이스 + 3 구현체 + QuestionRecommenderFactory
 - [ ] adapter-original-domain  — LegacyQuestionPort 인터페이스 + LegacyQuestionAdapter (mail-core Question 연결)
