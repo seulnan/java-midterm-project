@@ -22,4 +22,17 @@ class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    @Bean("statExecutor")
+    public Executor statExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("stat-");
+        executor.setRejectedExecutionHandler((r, pool) ->
+                log.warn("statExecutor 큐 포화 — 통계 태스크 드롭: {}", r));
+        executor.initialize();
+        return executor;
+    }
 }

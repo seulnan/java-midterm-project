@@ -38,6 +38,13 @@ class LegacyQuestionAdapterTest {
     }
 
     @Test
+    void 혼합_ID_조회시_존재하는것만_반환() {
+        List<LegacyQuestion> result = adapter.findByIds(List.of(1L, 999L, 2L));
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(LegacyQuestion::id).containsExactlyInAnyOrder(1L, 2L);
+    }
+
+    @Test
     void 카테고리로_질문_조회() {
         List<LegacyQuestion> backends = adapter.findByCategory("BACKEND");
         assertThat(backends).isNotEmpty();
@@ -45,8 +52,9 @@ class LegacyQuestionAdapterTest {
     }
 
     @Test
-    void 어댑터는_LegacyQuestionPort_구현체() {
-        assertThat(adapter).isInstanceOf(LegacyQuestionPort.class);
+    void 존재하지_않는_카테고리_조회시_빈_리스트_반환() {
+        List<LegacyQuestion> result = adapter.findByCategory("UNKNOWN");
+        assertThat(result).isEmpty();
     }
 
     @Test

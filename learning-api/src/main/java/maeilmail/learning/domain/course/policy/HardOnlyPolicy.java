@@ -30,8 +30,7 @@ public class HardOnlyPolicy implements CoursePolicy {
             return List.of();
         }
 
-        // 단순화: HARD 문제 ID를 101~200 범위로 가정
-        return LongStream.rangeClosed(101, 200)
+        return LongStream.rangeClosed(101, 150)
                 .limit(limit)
                 .boxed()
                 .toList();

@@ -44,7 +44,7 @@ class QuestionRecommenderFactoryTest {
         QuestionRecommender recommender = factory.create(Difficulty.HARD);
         assertThat(recommender.difficulty()).isEqualTo(Difficulty.HARD);
         List<Long> ids = recommender.recommend("user@test.com", 3);
-        assertThat(ids).allMatch(id -> id >= 101 && id <= 200);
+        assertThat(ids).allMatch(id -> id >= 101 && id <= 150);
     }
 
     @Test

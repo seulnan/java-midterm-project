@@ -16,7 +16,7 @@ public class UserStatUpdateListener {
 
     private final UserStatService userStatService;
 
-    @Async
+    @Async("statExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(AnswerSubmittedEvent event) {
         log.debug("통계 갱신: user={}, correct={}", event.userEmail(), event.isCorrect());
