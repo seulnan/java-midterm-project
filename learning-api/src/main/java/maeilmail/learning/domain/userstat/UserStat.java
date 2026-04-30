@@ -66,8 +66,7 @@ public class UserStat {
         return stat;
     }
 
-    // synchronized는 Service 계층에서 적용 — 단일 JVM 동시성 보장
-    public synchronized void recordAnswer(boolean isCorrect, long responseTimeMs) {
+    public void recordAnswer(boolean isCorrect, long responseTimeMs) {
         this.totalAttempts++;
         if (isCorrect) {
             this.correctCount++;
