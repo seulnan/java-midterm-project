@@ -1,453 +1,147 @@
-# 매일메일 Plus — 적응형 학습 백엔드 (learning-api)
+# 매일메일 Plus — learning-api
 
 ## 프로그램 개요
 
-[매일메일](https://github.com/maeil-mail/maeil-mail-be) 오픈소스 프로젝트를 클론하여, 기술 면접 구독 서비스 위에  
-**개인 맞춤형 학습 기능**을 추가한 Spring Boot 백엔드 모듈입니다.
+원본 매일메일은 매일 아침 백엔드/프론트엔드 기술면접 질문과 답변을 메일로 보내 주는 서비스입니다. 저는 BACKEND 카테고리를 구독하고 있었고 면접 준비 단계에서 적지 않게 도움을 받았는데, 얼마 전 서비스 종료 공지를 보고 평소에 아쉬워했던 기능들을 직접 한번 붙여 보자는 생각으로 시작했습니다.
 
-사용자가 문제를 풀면 오답 노트가 자동 생성되고, SM-2 간격 반복 알고리즘으로 복습 주기를 계산합니다.  
-학습 통계를 바탕으로 난이도가 자동 조정되며, 복습 시점이 되면 메일로 알림을 보냅니다.
+평소에 추가되었으면 했던 기능은 대략 네 가지였습니다.
 
-- 포트: **8081** (원본 mail-app 8080과 독립)
-- 원본 코드는 **일절 수정하지 않고** 새 모듈(`learning-api`)만 추가
+- **사용자 행동 데이터 기반 난이도 자동 조정**: 정답률·응답 시간 같은 행동 지표를 누적해 다음에 받게 될 문제의 난이도를 EASY/MEDIUM/HARD 사이에서 자동으로 옮겨 주는 적응형 학습.
+- **오답 노트와 간격 반복(spaced repetition) 복습**: 틀린 문제를 잊을 만하면 다시 보게 해 주는 SM-2 기반 복습 스케줄링.
+- **개념 그래프 기반 점진적 확장**: 어떤 개념을 충분히 소화했다고 판단되면 그 후속 개념을 이어서 보여 주는 흐름. "이게 결국 그거였구나"를 늦게라도 깨닫게 하는 학습 동선입니다.
+- **학습 코스**: 단기 핵심 완성, 고난도 문제만 풀기, 약점 보완처럼 목적별 코스를 골라 그날의 문제를 다른 기준으로 받아 보는 형태.
 
----
+이 중 행동 데이터 기반 난이도 조정, 오답 노트와 SM-2 복습, 학습 코스 세 갈래는 이번 범위에서 동작 가능한 형태로 마쳤습니다. 개념 그래프 기반 확장은 도메인 정책의 한 변형으로 다룰 수 있도록 Strategy 인터페이스(`CoursePolicy`)와 난이도별 추천기 추상화(`QuestionRecommender` + `QuestionRecommenderFactory`)까지 미리 깔아 두어, 추후 선수–후수 개념 그래프와 마스터리 판정 규칙만 새 정책으로 추가하면 기존 코드를 거의 건드리지 않고 확장할 수 있도록 자리를 잡아 둔 상태입니다.
+
+원본 저장소를 클론한 뒤 기존 모듈은 일절 수정하지 않고 `learning-api`라는 신규 모듈만 추가했습니다. 포트는 기존 mail 앱(8080)과 충돌하지 않도록 8081로 분리했습니다.
 
 ## 원본 저장소
 
-> 클론 후 `learning-api` 모듈 추가 개발  
-> **원본 URL**: https://github.com/maeil-mail/maeil-mail-be
+원본 URL: https://github.com/maeil-mail/maeil-mail-be
 
----
+이 위에 `learning-api` 모듈만 추가했습니다.
 
 ## 사용한 주요 자바 개념
 
-### 객체지향 심화
-| 개념 | 적용 위치 |
-|------|----------|
-| 인터페이스 분리 원칙 | `LearningMailSender`, `LegacyQuestionPort`, `CoursePolicy`, `QuestionRecommender` — 구현체와 호출자 완전 분리 |
-| 다형성 | Spring이 `List<CoursePolicy>` 주입 → 런타임에 올바른 구현체 선택 |
-| 캡슐화 | `WrongNote.applyReview()` — SM-2 알고리즘 내부 상태를 엔티티 안에 은닉 |
-| 이벤트 기반 설계 | `AnswerSubmittedEvent` — 답안 제출과 부수 효과(오답 노트/통계/메일)를 완전 분리 |
+이 항목은 단순히 어떤 문법을 썼는지를 나열하기보다, 제가 직접 내린 설계 판단(도메인 모델 분해, 알고리즘 선정과 파라미터 결정, Mock 경계 설계, 테스트 범위 명세, 동시성 전략)이 자바와 스프링의 어떤 개념과 어떻게 맞물렸는지를 정리하는 쪽으로 적었습니다. 코드 타이핑 자체는 에이전트에게 맡겼지만, 어떤 개념을 어디에 어떤 형태로 적용할지에 대한 결정은 제가 직접 했습니다.
 
-### 디자인 패턴 (GoF 4종)
-| 패턴 | 구현 클래스 | 핵심 |
-|------|------------|------|
-| **Adapter** | `LearningMailSender` + `MockMailSender` / `SmtpMailSender` | `@Profile`로 환경마다 구현체 교체 |
-| **Adapter** | `LegacyQuestionPort` + `LegacyQuestionAdapter` | mail-core `Question` ↔ learning-api 도메인 번역 계층 |
-| **Strategy** | `CoursePolicy` + `ShortIntensivePolicy` / `HardOnlyPolicy` / `WeaknessFocusedPolicy` | 코스 타입별 문제 선택 로직 런타임 교체 |
-| **Observer** | `AnswerSubmittedEvent` + 3개 `@TransactionalEventListener` | DB 커밋 이후에만 부수 효과 실행 |
-| **Factory** | `QuestionRecommenderFactory.create(Difficulty)` | 난이도 → 추천기 인스턴스 동적 생성 |
+**도메인 모델링과 객체 지향**
 
-### 제네릭 / 컬렉션
-```java
-// Factory: List<T> 주입 → Map<K,V> 변환 (타입 안전 Factory)
-private final List<QuestionRecommender> recommenders;
+학습 흐름을 한 덩어리 서비스로 두지 않고 Answer / WrongNote / UserStat / CourseEnrollment 네 개의 애그리거트로 분리했습니다. 각 애그리거트는 자기 상태를 자기가 변경하도록 도메인 메서드(`WrongNote.applyReview()`, `UserStat.recordAnswer()` 등)를 갖고, 서비스는 트랜잭션 경계와 외부 호출 조율만 담당하도록 책임을 갈랐습니다. 이렇게 분리하니 SM-2 알고리즘 같은 도메인 규칙이 서비스 레이어로 새지 않고 엔티티 안에 캡슐화되어, 단위 테스트의 표면(test surface)이 좁아져 검증이 단순해지는 효과를 얻었습니다.
 
-Map<Difficulty, QuestionRecommender> map = recommenders.stream()
-    .collect(Collectors.toMap(QuestionRecommender::difficulty, Function.identity()));
+**인터페이스를 통한 추상화 (DI / IoC)**
 
-// Strategy: Map<CourseType, CoursePolicy> 런타임 디스패치
-Map<CourseType, CoursePolicy> policyMap = policies.stream()
-    .collect(Collectors.toMap(CoursePolicy::courseType, Function.identity()));
-```
+환경에 따라 구현이 달라져야 하는 모든 외부 의존(메일 발송, 레거시 문제 데이터 조회)은 인터페이스로 추상화한 뒤 스프링 IoC 컨테이너에서 프로필별로 빈을 주입하도록 했습니다. 메일은 `LearningMailSender` 인터페이스 하나만 두고, 로컬·테스트에서는 인메모리 기록만 수행하는 `MockMailSender`, dev 프로필에서는 실제 SMTP를 태우는 `SmtpMailSender`가 `@Profile`로 선택되도록 `MailConfig`에 분기를 두었습니다. Mock 경계를 어디로 잡을지 — 어떤 외부 시스템까지 인메모리로 끊어 내고 어디부터 실제 자원을 쓸지 — 는 제가 결정한 부분이고, 그 결정이 그대로 인터페이스의 위치로 표현되어 있습니다.
 
-### 람다 / 스트림 API
-```java
-// LegacyQuestionAdapter: 스트림 + 메서드 레퍼런스 + filter + collect
-List<LegacyQuestion> result = store.values().stream()
-    .filter(q -> q.category().equalsIgnoreCase(category))
-    .collect(Collectors.toList());
+**디자인 패턴 적용 위치 선정**
 
-// in-memory store 구성: LongStream + mapToObj + Collectors.toMap
-LongStream.rangeClosed(1, 200)
-    .mapToObj(id -> new LegacyQuestion(id, "Question #" + id, ...))
-    .collect(Collectors.toMap(LegacyQuestion::id, q -> q));
-```
+패턴 자체보다 "어디에 어떤 변경 축이 생기느냐"를 먼저 식별한 뒤 적용했습니다.
 
-### 멀티스레드 기초
-```java
-// UserStat: synchronized 메서드 + @Version 낙관적 락 이중 보호
-@Version
-private Long version;  // JPA 낙관적 락 — DB 레벨 충돌 감지
+- *Adapter*: 메일 발송 구현체 교체와, 원본 `mail-core`의 Question 도메인을 learning-api 쪽 타입으로 번역하는 두 지점에 적용. 후자는 learning-api가 mail-core의 무거운 의존(QueryDSL, MySQL 드라이버, Bucket4j 등)을 그대로 끌어오지 않도록 `LegacyQuestionPort` 인터페이스로 끊어 두었고, 데이터 출처 변경이 어댑터 구현 교체로 끝나도록 했습니다.
+- *Strategy*: 코스마다 오늘의 문제를 고르는 규칙(SHORT_INTENSIVE / HARD_ONLY / WEAKNESS_FOCUSED)이 달라지는 변경 축을 분리. `CoursePolicy` 인터페이스 + 구현체 자동 수집(`List<CoursePolicy>`) + `Map<CourseType, CoursePolicy>` 디스패치 구조로, 코스 추가가 새 클래스 등록만으로 끝나도록 OCP를 지켰습니다.
+- *Observer (도메인 이벤트)*: 답안 제출이라는 단일 사건에 오답 노트 등록·통계 갱신·메일 알림이라는 세 가지 부수 효과(side effect)를 결합해야 하는데, 이를 호출 측에 직접 묶으면 후속 처리가 늘어날 때마다 발행 측을 수정해야 합니다. `AnswerSubmittedEvent`를 발행하고 `@TransactionalEventListener(phase = AFTER_COMMIT)`으로 수신하도록 해 부수 효과 처리를 발행 트랜잭션과 분리했고, 리스너 실패가 답안 저장 트랜잭션을 롤백시키지 않도록 격리했습니다.
+- *Factory*: 난이도(EASY/MEDIUM/HARD)별 추천기를 키로 디스패치하기 위해 `QuestionRecommenderFactory`를 두었습니다. 난이도별 자동 메일링 같은 후속 작업에서 발송 측이 사용자의 현재 난이도를 키로 Recommender를 꺼내 메일에 묶기만 하면 되도록 자리를 잡아 둔 형태입니다.
 
-public synchronized void recordAnswer(boolean isCorrect) { ... }
+**제네릭과 컬렉션 기반 자동 수집**
 
-// 비동기 메일 발송: ThreadPoolTaskExecutor + @Async
-@Async("mailExecutor")
-@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-public void onAnswerSubmitted(AnswerSubmittedEvent event) { ... }
-```
+스프링이 동일 인터페이스의 모든 구현체를 `List<T>`로 주입해 주는 특성을 활용해, `CourseService`와 `QuestionRecommenderFactory`에서는 생성자로 받은 리스트를 `@PostConstruct` 시점에 `Map<Enum, 구현체>`로 묶어 불변 뷰(`Collections.unmodifiableMap`)로 노출했습니다. enum 키 + 컴파일타임 타입 안전성 덕분에 새 정책 추가 시 디스패치 코드를 손대지 않아도 되고, 잘못된 키가 들어올 가능성이 컴파일 시점에 차단됩니다.
 
-**Race Condition 시연 테스트** (`UserStatRaceConditionTest`):
-- `UnsafeCounter`: 100 스레드 × 1,000 증가 → 손실 발생 (`< 100,000`)
-- `SafeCounter`: `synchronized` 적용 → 정확히 `100,000`
+**람다와 스트림**
 
----
+레거시 어댑터의 카테고리 필터링, 이미 시도한 문제를 제외한 추천 로직 등 컬렉션 변환 부분은 스트림 + 람다로 작성해 가독성을 우선했습니다. 무한 스트림(`LongStream.iterate`)에는 반드시 `limit`로 종단 연산을 보장했고, 추천 결과는 `toList()`로 불변 리스트로 반환해 호출 측이 의도치 않게 변경하지 못하도록 했습니다.
+
+**멀티스레드와 동시성 전략**
+
+가장 비중을 둔 영역입니다. 통계 갱신은 동시 요청 시 갱신 손실(lost update)이 발생하기 쉬워서, 단일 JVM 환경의 인스턴스 잠금(`synchronized`)과 다중 인스턴스 환경에서도 동작하는 JPA 낙관적 락(`@Version`)을 함께 적용했고, 신규 사용자 행 생성 시점의 경쟁 조건은 `findByUserEmailForUpdate`(`PESSIMISTIC_WRITE`)로 행 잠금을 한 번 더 둘러 차단했습니다. 동시 삽입 충돌은 unique 제약과 `DataIntegrityViolationException` 캐치 후 재조회로 복구합니다.
+
+이 결정의 타당성을 검증하기 위해 `UserStatRaceConditionTest`에서 race condition을 의도적으로 재현했습니다. 100개 스레드가 1,000회씩 카운터를 증가시킬 때 보호되지 않은 카운터는 기대치(100,000)보다 작은 값으로 수렴하고 `synchronized`로 보호된 카운터만 정확히 100,000을 보장한다는 것을 단정문(`assertThat(...).isLessThanOrEqualTo(100_000)` vs `isEqualTo(100_000)`)으로 박아 두었습니다.
+
+메일 발송은 동기로 두면 사용자 응답 시간이 SMTP 지연에 결합되므로 별도 `ThreadPoolTaskExecutor`(`mailExecutor`)를 만들고 `@Async`로 비동기 디스패치하도록 했습니다. 큐 포화 시점에는 `RejectedExecutionHandler`를 등록해 태스크 드롭을 로그로만 처리하고 호출 흐름은 깨지지 않도록 했고(백프레셔 처리), 통계 갱신도 답안 응답 경로를 막지 않도록 별도 `statExecutor`로 분리했습니다.
+
+**스케줄링과 트랜잭션 경계**
+
+복습 메일 알림은 `@Scheduled(cron = "0 0 6 * * *", zone = "Asia/Seoul")`로 매일 06:00 KST에 발화시키고, 발송 자체는 `@Async("mailExecutor")`로 위임해 스케줄 스레드를 점유하지 않도록 했습니다. 이벤트 리스너의 `phase = AFTER_COMMIT` 지정과 함께, 트랜잭션 경계와 비동기 경계를 어디에 둘지를 처음부터 의식하면서 코드를 구성했습니다.
 
 ## 클래스 구성 설명
 
-```
-maeilmail.learning
-├── LearningApiApplication            메인 클래스 (@SpringBootApplication)
-│
-├── config/
-│   ├── AsyncConfig                   ThreadPoolTaskExecutor("mailExecutor") 정의
-│   ├── MailConfig                    @Profile 기반 LearningMailSender 빈 선택
-│   └── SchedulerConfig               @EnableScheduling
-│
-├── common/
-│   ├── ApiResponse<T>                제네릭 공통 응답 래퍼 record
-│   ├── GlobalExceptionHandler        @RestControllerAdvice
-│   └── ErrorCode                     에러 코드 enum
-│
-├── domain/
-│   ├── answer/
-│   │   ├── Answer                    @Entity — 답안 기록
-│   │   ├── AnswerRepository          Spring Data JPA
-│   │   ├── AnswerService             submitAnswer() → event publish
-│   │   └── event/AnswerSubmittedEvent  도메인 이벤트
-│   │
-│   ├── wrongnote/
-│   │   ├── WrongNote                 @Entity — SM-2 상태 보유 (interval, easeFactor)
-│   │   ├── WrongNoteRepository
-│   │   └── WrongNoteService          오답 등록 / 복습 처리
-│   │
-│   ├── userstat/
-│   │   ├── UserStat                  @Entity — @Version 낙관적 락 + synchronized 갱신
-│   │   ├── UserStatRepository
-│   │   └── UserStatService           findOrCreate + recordAnswer (동시성 보호)
-│   │
-│   └── course/
-│       ├── CourseEnrollment          @Entity — 수강 정보
-│       ├── CourseService             getTodayQuestions() — Strategy 디스패치
-│       └── policy/
-│           ├── CoursePolicy          인터페이스 (Strategy Target)
-│           ├── ShortIntensivePolicy  7일 집중 코스
-│           ├── HardOnlyPolicy        HARD 문제만
-│           └── WeaknessFocusedPolicy 취약 카테고리 집중
-│
-├── infrastructure/
-│   ├── mail/
-│   │   ├── LearningMailSender        인터페이스 (Adapter Target)
-│   │   ├── SmtpMailSender            Gmail SMTP (@Profile("dev"))
-│   │   └── MockMailSender            콘솔 로그 / 인메모리 (@Profile("local","test"))
-│   │
-│   └── recommender/
-│       ├── QuestionRecommender       인터페이스 (Strategy + Factory)
-│       ├── EasyRecommender           ID 1~50
-│       ├── MediumRecommender         ID 51~100
-│       ├── HardRecommender           ID 101~200
-│       └── QuestionRecommenderFactory  create(Difficulty) → 구현체 반환
-│
-├── adapter/
-│   ├── LegacyQuestion                record DTO
-│   ├── LegacyQuestionPort            인터페이스 (Adapter Target)
-│   └── LegacyQuestionAdapter         mail-core Question 번역 구현체
-│
-├── api/
-│   ├── AnswerController              POST /api/answers
-│   ├── WrongNoteController           GET/POST /api/wrong-notes
-│   ├── UserStatController            GET /api/stats/me
-│   ├── CourseController              POST /api/courses/enroll, GET /api/courses/me/today
-│   └── DevController                 POST /api/dev/test-mail (@Profile local/dev)
-│
-└── event/listener/
-    ├── WrongNoteRegistrationListener @TransactionalEventListener(AFTER_COMMIT) — 오답 노트 등록/삭제
-    ├── UserStatUpdateListener        @TransactionalEventListener(AFTER_COMMIT) — 통계 갱신
-    └── MailNotificationListener      @Async + @TransactionalEventListener(AFTER_COMMIT) — 메일 큐잉
-```
+`learning-api` 모듈은 `maeilmail.learning` 패키지 아래에 다음과 같이 나누었습니다.
 
----
+- `api/` — REST 컨트롤러. HTTP 요청·응답 변환만 담당하고 비즈니스 로직은 두지 않았습니다. (`AnswerController`, `WrongNoteController`, `CourseController`, `UserStatController`, 로컬 점검용 `DevController`)
+- `domain/` — 애그리거트별 엔티티·리포지토리·서비스. 하위에 `answer`, `wrongnote`, `userstat`, `course`로 도메인을 분리했고, 코스에는 `policy/` 하위에 Strategy 구현체를 모았습니다.
+- `event/listener/` — `AnswerSubmittedEvent`를 받아 오답 노트 등록·통계 갱신·메일 큐잉을 처리하는 리스너 셋. 각 리스너는 단일 책임만 갖도록 분리되어 있습니다.
+- `infrastructure/` — 메일 발송 구현체와 난이도별 추천기, 스케줄러처럼 외부 시스템에 닿거나 시간 의존적인 코드를 모았습니다.
+- `adapter/` — 원본 `mail-core` Question 도메인을 끊어 내는 어댑터.
+- `config/` — 비동기 스레드풀, JPA Auditing, 환경별 메일 빈 선택.
+- `common/` — 공통 응답 래퍼(`ApiResponse`), 전역 예외 핸들러(`@RestControllerAdvice`), 에러 코드.
+
+진입점은 `LearningApiApplication`이며 `@EnableAsync`, `@EnableScheduling`을 일괄 선언했습니다.
 
 ## 실행 방법
 
-### 로컬 실행 (H2 인메모리 DB)
+로컬 환경은 H2 인메모리 DB로 즉시 기동할 수 있습니다.
 
-```bash
-# 1. 저장소 클론
+```
 git clone https://github.com/seulnan/java-midterm-project.git
 cd java-midterm-project
-
-# 2. 로컬 프로파일로 실행 (MockMailSender, H2)
 ./gradlew :learning-api:bootRun --args='--spring.profiles.active=local'
-
-# 3. 헬스 체크
-curl http://localhost:8081/actuator/health
 ```
 
-### 테스트 실행
+기동 확인은 `http://localhost:8081/actuator/health`에서 합니다.
 
-```bash
-# 전체 테스트 (118개)
+테스트 실행:
+
+```
 ./gradlew :learning-api:test
-
-# 계층별 실행
-./gradlew :learning-api:test --tests "maeilmail.learning.domain.*"
-./gradlew :learning-api:test --tests "maeilmail.learning.api.*"
-./gradlew :learning-api:test --tests "maeilmail.learning.integration.*"
-./gradlew :learning-api:test --tests "maeilmail.learning.event.*"
-./gradlew :learning-api:test --tests "maeilmail.learning.infrastructure.*"
-./gradlew :learning-api:test --tests "maeilmail.learning.adapter.*"
 ```
 
-**요구 사항**: Java 17+, Gradle 8.x
-
----
-
-## 테스트 설계 원칙
-
-### 계층 분리 (Testing Pyramid)
-
-```
-          ┌─────────────┐
-          │  E2E / 통합  │  6개  @SpringBootTest — 실제 Spring 컨텍스트, 전체 흐름
-          ├─────────────┤
-          │  Controller │ 15개  @WebMvcTest — HTTP 계층, 상태 코드, 직렬화
-          ├─────────────┤
-          │  Repository │ 22개  @DataJpaTest — 실제 SQL, 제약 조건, 쿼리
-          ├─────────────┤
-          │   Service   │ 30개  Mockito — 비즈니스 로직 격리
-          ├─────────────┤
-          │   Domain    │ 45개  순수 Java — 엔티티·알고리즘·열거형
-          └─────────────┘
-```
-
-| 계층 | 도구 | Spring 컨텍스트 | 속도 |
-|------|------|----------------|------|
-| 엔티티 / 알고리즘 | JUnit 5 + AssertJ | 없음 | 즉시 |
-| 서비스 | Mockito `@ExtendWith` | 없음 | 빠름 |
-| Repository | `@DataJpaTest` + H2 | JPA 슬라이스 | 중간 |
-| Controller | `@WebMvcTest` + MockMvc | MVC 슬라이스 | 중간 |
-| E2E | `@SpringBootTest(NONE)` + H2 | 전체 | 느림 |
-
-### 원칙 1 — 계층별 책임 격리
-
-```java
-// 서비스 테스트: Repository는 Mock → 비즈니스 로직만 검증
-@ExtendWith(MockitoExtension.class)
-class WrongNoteServiceTest {
-    @Mock WrongNoteRepository wrongNoteRepository;
-    @InjectMocks WrongNoteService wrongNoteService;
-
-    @Test
-    void registerOrSkip_이미_존재하면_저장_스킵() {
-        given(wrongNoteRepository.findByUserEmailAndQuestionId(...))
-            .willReturn(Optional.of(existing));
-        wrongNoteService.registerOrSkip("u@t.com", 1L);
-        verify(wrongNoteRepository, never()).save(any()); // save 미호출 검증
-    }
-}
-```
-
-```java
-// Repository 테스트: 실제 H2 DB → SQL·제약 조건 검증
-@DataJpaTest
-@EnableJpaAuditing
-class WrongNoteRepositoryTest {
-    @Test
-    void 동일_user_question_중복_저장_시_예외() {
-        repository.saveAndFlush(WrongNote.create("user@t.com", 1L));
-        assertThatThrownBy(() -> repository.saveAndFlush(WrongNote.create("user@t.com", 1L)))
-            .isInstanceOf(DataIntegrityViolationException.class); // UniqueConstraint 실제 검증
-    }
-}
-```
-
-### 원칙 2 — 경계값 우선 테스트
-
-SM-2 알고리즘의 `easeFactor` 하한(1.3), 난이도 조정 임계값(80%/40%),  
-20문제 미만에서의 조정 억제 등 **코드에서 가장 버그가 나기 쉬운 경계**를 집중 검증합니다.
-
-```java
-@Test
-void easeFactor는_1_3_아래로_떨어지지_않는다() {
-    WrongNote note = WrongNote.create("user@test.com", 1L);
-    for (int i = 0; i < 20; i++) note.applyReview(false); // 20번 연속 오답
-    assertThat(note.getEaseFactor()).isGreaterThanOrEqualTo(1.3); // 하한 고정
-}
-
-@ParameterizedTest
-@CsvSource({"20,true", "25,true", "21,false", "22,false"})
-void 배수5_시도에서만_난이도_평가(int attempts, boolean shouldAdjust) { ... }
-```
-
-### 원칙 3 — 행동 기반 검증 (BDD 스타일)
-
-Mockito `given/when/verify` 패턴으로 **호출 여부와 횟수**까지 검증합니다.
-
-```java
-// "정답이면 오답노트를 삭제해야 한다"
-@Test
-void 정답_이벤트_수신_시_오답노트_제거() {
-    AnswerSubmittedEvent event = new AnswerSubmittedEvent(2L, "user@test.com", 10L, true, 800L);
-    listener.handle(event);
-    verify(wrongNoteService).removeIfExists("user@test.com", 10L); // 정확한 메서드 호출 검증
-}
-```
-
-### 원칙 4 — HTTP 계층 명세 검증 (`@WebMvcTest`)
-
-컨트롤러 테스트는 **HTTP 상태 코드, 응답 JSON 구조, 검증 에러**를 검증합니다.  
-서비스는 Mock 처리하여 HTTP 계층에만 집중합니다.
-
-```java
-@Test
-void POST_answers_submittedText_빈_문자열_400() throws Exception {
-    String badJson = """{"questionId": 1, "submittedText": "", ...}""";
-    mockMvc.perform(post("/api/answers")
-            .contentType(MediaType.APPLICATION_JSON).content(badJson))
-        .andExpect(status().isBadRequest()); // Bean Validation → 400 확인
-}
-```
-
-### 원칙 5 — 동시성 시연 테스트
-
-`synchronized` 유무에 따른 결과 차이를 **100 스레드 × 1,000 증가**로 실증합니다.
-
-```java
-@Test
-void unsafe_카운터_손실_발생() throws InterruptedException {
-    // synchronized 없음 → race condition → 최종값 < 100,000
-    assertThat(counter.get()).isLessThan(TOTAL);
-}
-
-@Test
-void safe_카운터_정확한_값() throws InterruptedException {
-    // synchronized 적용 → 정확히 100,000
-    assertThat(counter.get()).isEqualTo(TOTAL);
-}
-```
-
----
-
-## 테스트 커버리지
-
-### 전체 현황
-
-| 총 테스트 클래스 | 총 테스트 수 | 통과율 |
-|---------------|------------|-------|
-| 24개 | 118개 | 100% |
-
-### 클래스별 테스트 수
-
-| 테스트 클래스 | 종류 | 테스트 수 | 검증 내용 |
-|-------------|------|---------|----------|
-| `WrongNoteTest` | 엔티티 | 5 | SM-2 경계값, easeFactor 하한, 연속 복습 |
-| `UserStatTest` | 엔티티 | 8 | 난이도 임계값, 5배수 조정, 이동 평균 |
-| `DifficultyTest` | 열거형 | 7 | upgrade/downgrade 상·하한 고정 |
-| `AnswerServiceTest` | 서비스 | 3 | 정답/오답 처리, 이벤트 발행 검증 |
-| `WrongNoteServiceTest` | 서비스 | 7 | CRUD, 중복 방지, 예외 처리 |
-| `UserStatServiceTest` | 서비스 | 4 | 신규 생성, 기존 갱신, 404 예외 |
-| `CourseServiceTest` | 서비스 | 4 | 수강신청, 기존 코스 종료, Strategy 디스패치 |
-| `CoursePolicyTest` | 서비스 | 7 | 3가지 Policy 추천 로직, 중복 제외 |
-| `WrongNoteRegistrationListenerTest` | 이벤트 | 2 | 정답/오답 이벤트 → 올바른 서비스 호출 |
-| `UserStatUpdateListenerTest` | 이벤트 | 2 | 이벤트 → UserStat.recordAnswer 호출 |
-| `MailNotificationListenerTest` | 이벤트 | 2 | 오답 시만 메일 발송 |
-| `MockMailSenderTest` | 인프라 | 3 | 발송 기록, 목록 조회 |
-| `QuestionRecommenderFactoryTest` | 인프라 | 5 | Factory 생성, 범위 교차 없음 |
-| `LegacyQuestionAdapterTest` | 어댑터 | 7 | Adapter 패턴 동작, 카테고리 필터 |
-| `UserStatRaceConditionTest` | 동시성 | 2 | unsafe 손실 발생 vs safe 정확성 |
-| `WrongNoteRepositoryTest` | Repository | 6 | UniqueConstraint, 페이징, due 쿼리 |
-| `UserStatRepositoryTest` | Repository | 6 | @Version 초기값, 낙관적 락, 중복 방지 |
-| `AnswerRepositoryTest` | Repository | 4 | Top20 쿼리, 사용자 격리 |
-| `CourseEnrollmentRepositoryTest` | Repository | 5 | 활성 코스 조회, 종료 후 재수강 |
-| `AnswerControllerTest` | Controller | 4 | 201 Created, Bean Validation 400 |
-| `UserStatControllerTest` | Controller | 3 | 200 OK, 404 처리, 파라미터 누락 400 |
-| `WrongNoteControllerTest` | Controller | 4 | 페이지 응답, due 목록, 404 처리 |
-| `CourseControllerTest` | Controller | 4 | 수강신청, 오늘의 문제, 404 처리 |
-| `LearningFlowE2ETest` | E2E | 6 | 오답→노트 생성, SM-2 복습, 코스 재수강, 중복 방지 |
-
----
+Java 17, Gradle 8.x 기준입니다.
 
 ## 주요 기능 설명
 
-### 1. 답안 제출 & 이벤트 처리
-```
-POST /api/answers
-{ "userEmail": "user@example.com", "questionId": 1, "isCorrect": true, "score": 85, "responseTimeMs": 12000 }
-```
-- 답안 저장 후 `AnswerSubmittedEvent` 발행
-- 3개의 `@TransactionalEventListener(AFTER_COMMIT)` 리스너가 독립적으로 처리:
-  - 오답 노트 등록/삭제
-  - 학습 통계 갱신 + 난이도 자동 조정
-  - 복습 알림 메일 비동기 발송
+답안 제출(`POST /api/answers`)이 학습 흐름의 시작점입니다. 답안이 영속화되면 `AnswerSubmittedEvent`가 발행되고, 트랜잭션 커밋 이후 세 리스너가 각각 다음을 수행합니다. 오답이면 오답 노트에 등록(중복 무시), 정답이면 같은 문제의 기존 오답 노트를 제거. 통계는 시도 횟수·정답 수·평균 응답 시간을 갱신하고, 일정 누적 조건(20문제 이상, 5문제 단위)에서 정답률 임계값(0.8 / 0.4)을 기준으로 난이도를 자동으로 상하 조정합니다. 메일 리스너는 오답일 때만 알림을 큐잉합니다.
 
-### 2. SM-2 간격 반복 복습
-```
-POST /api/wrong-notes/{id}/review  { "isCorrect": true }
-GET  /api/wrong-notes/me/due?email=user@example.com   (오늘 복습할 문제 목록)
-```
-| 결과 | interval | easeFactor |
-|------|----------|------------|
-| 정답 | `round(interval × ease)` | `ease + 0.1` |
-| 오답 | 1 (리셋) | `max(1.3, ease - 0.2)` |
+오답 노트 복습은 SM-2 간격 반복 알고리즘을 단순화해 적용했습니다. 정답 시 다음 복습 간격이 ease_factor 비율로 늘어나며 ease_factor가 0.1 증가하고, 오답 시 간격이 1일로 리셋되고 ease_factor는 0.2 감소하되 1.3 하한을 두어 무한 감쇠를 방지했습니다. 경계값은 `WrongNoteTest`에서 직접 검증합니다.
 
-### 3. 난이도 자동 조정
-최근 20문제 정답률 기준으로 `UserStat.currentDifficulty` 자동 변경:
-- `> 80%` → 한 단계 상승 (EASY → MEDIUM → HARD)
-- `< 40%` → 한 단계 하강
+코스는 학습 모드별로 그날의 문제 풀(pool) 결정 규칙을 다르게 가는 기능입니다. SHORT_INTENSIVE는 미시도 문제 우선, HARD_ONLY는 사용자가 HARD 레벨일 때만 어려운 문제 풀에서 추출, WEAKNESS_FOCUSED는 최근 오답 문제를 우선합니다. 새 코스 신청 시 기존 활성 코스가 자동으로 종료되어 활성 코스 1개라는 도메인 불변식이 유지됩니다.
 
-### 4. 코스 수강 & 오늘의 문제
-```
-POST /api/courses/enroll  { "userEmail": "...", "courseType": "SHORT_INTENSIVE" }
-GET  /api/courses/me/today?email=user@example.com
-```
-Strategy 패턴으로 코스 타입(`SHORT_INTENSIVE` / `HARD_ONLY` / `WEAKNESS_FOCUSED`)에 따라 다른 문제 선택 로직 적용
-
-### 5. 학습 통계 조회
-```
-GET /api/stats/me?email=user@example.com
-```
-
----
+복습 메일 스케줄러는 매일 06:00 KST에 트리거되어, 그 시점에 복습 기한이 도래한 오답이 있는 사용자에게 알림을 발송합니다. 로컬 프로필에서는 `MockMailSender`가 빈으로 등록되어 콘솔 로그만 남기므로 실제 메일 트래픽 없이 흐름을 검증할 수 있습니다.
 
 ## 본인이 구현한 부분
 
-기존 매일메일 코드(mail-core, mail-api 등)는 **수정 없이** 그대로 두고,  
-`learning-api` 모듈 전체를 새로 작성했습니다.
+이번 과제에서 코드 타이핑은 모두 AI 에이전트가 맡았고, 저는 단 한 줄도 직접 작성하지 않았습니다. 그 대신 다음 영역에서의 결정이 제 몫이었습니다.
 
-- **Gradle 멀티모듈 통합**: `settings.gradle`에 `learning-api` 추가, `build-recipe-plugin` 타입 기반 의존 설정, Datadog 미터 제외 처리
-- **도메인 설계**: Answer / WrongNote / UserStat / CourseEnrollment 4개 JPA 엔티티
-- **SM-2 알고리즘**: `WrongNote.applyReview()` — 학습 과학 기반 복습 주기 계산
-- **동시성 처리**: `synchronized` + `@Version` 이중 보호, Race Condition 시연 테스트
-- **이벤트 아키텍처**: `ApplicationEventPublisher` + `@TransactionalEventListener(AFTER_COMMIT)` — 트랜잭션 안전성 보장
-- **4가지 GoF 패턴** 구현: Adapter × 2, Strategy × 3, Observer, Factory
-- **비동기 메일**: `ThreadPoolTaskExecutor` + `@Async` 스레드풀 분리
-- **프로파일 전략**: local/test(Mock) ↔ dev(SMTP) 환경 분리
-- **전체 테스트**: 도메인별 단위 테스트 + Race Condition 시연 + Factory/Adapter 통합 테스트
+- **기능 기획과 도메인 분해**: 매일메일에 어떤 학습 기능을 어떤 단위로 추가할지, 어떤 개념을 별도 aggregate로 떼어 낼지 결정.
+- **알고리즘 선정과 파라미터 설계**: 복습 스케줄링에 SM-2를 채택하고, 정답&오답 시의 ease_factor 증감폭과 1.3 하한, 인터벌 리셋 규칙 같은 정책 상수를 결정. 난이도 자동 조정의 임계값(0.8 / 0.4)과 트리거 조건(20문제 이상, 5문제 단위)도 같은 맥락의 결정.
+- **Mock 경계 설계**: 학습 흐름의 어디까지를 인메모리·로컬에서 끊고 어디부터 실제 외부 시스템(SMTP, Supabase PostgreSQL)을 사용할지의 경계를 정하고, 그 경계가 인터페이스 분리 지점과 일치하도록 정렬.
+- **요구사항 명세와 작업 분할**: 기능 요구사항을 11개의 작은 작업 단위인 slug로 쪼개고, 각 단위마다 영향 범위,새 파일,수정 파일,금기 사항(기존 모듈 무수정),디자인 패턴,테스트 범위를 사전에 명세.
+- **테스트 범위와 시나리오 설계**: 어떤 로직을 단위 테스트로 좁히고 어떤 흐름을 `@DataJpaTest` / `@WebMvcTest` / `@SpringBootTest`로 묶을지, 어떤 동시성 시나리오(race condition 시연)를 어떤 검증 방식으로 잡을지 설계.
 
----
+원본의 `mail-core`, `mail-app`, `mail-batch`, `wiki-*` 모듈은 일절 수정하지 않았으며, 모든 추가 코드는 `learning-api` 모듈 내에 격리되어 있습니다. 모듈 분리, `settings.gradle` 등록, 환경 프로필(local / test / dev) 분기까지 동일한 명세 기반으로 진행했습니다.
 
-## AI 활용 여부 및 활용 범위
+## AI 활용 여부 및 활용 범위 (하네스 엔지니어링)
 
-**바이브코딩(Vibe Coding) 방식으로 Claude Code를 활용**하여 개발했습니다.
+이번 과제는 마침 Claude Max를 구독 중이었어서, 단순한 챗봇 활용을 넘어 "에이전트 하네스 엔지니어링"을 한번 진지하게 시도해 보고 싶었습니다. 이른바 Ralph Loop 패턴인데, AI를 일회성으로 호출해 답을 받는 방식 대신 역할이 다른 에이전트들을 하나의 파이프라인으로 엮어 자동으로 순환시키는 구조입니다.
 
-| 항목 | 내용 |
-|------|------|
-| 활용 도구 | Claude Code (claude.ai/code) — CLI 기반 AI 에이전트 |
-| 활용 방식 | 바이브코딩 — 설계 의도와 패턴 목표를 지시하면 AI가 코드 생성, 테스트, 커밋까지 자율 수행 |
-| 설계 결정 | 모든 아키텍처 결정(패턴 선택, 모듈 분리 방식, 동시성 전략)은 직접 기획 |
-| AI 역할 | 기획된 설계를 Java 코드로 구현, 오류 디버깅, 테스트 작성, PR 생성 자동화 |
-| 직접 작성 | 비즈니스 요구사항, 설계 문서(DECISIONS.md, architecture.md), 패턴 선택 근거 |
+운영 방식은 다음과 같았습니다. 학습 기능을 11개의 작은 단위로 쪼갠 뒤, 각 단위마다 planner 에이전트가 영향 범위와 단계 체크리스트를 작성하고, implementer 에이전트가 그 계획대로 코드를 생성하며 컴파일을 통과시키고, reviewer 에이전트가 아키텍처·비즈니스 규칙·Java 관용구·JPA 네 축으로 검토하고, tester 에이전트가 단위·통합·동시성 테스트를 추가합니다. 한 사이클이 끝날 때마다 PR이 한 개씩 생성되어 변경 단위가 작게 유지되도록 했고, 11개의 슬러그가 11개의 PR(#1~#11)에 1:1 대응합니다.
 
-> SM-2 알고리즘, 동시성 전략, 이벤트 기반 아키텍처 등 핵심 설계는 직접 기획하였으며,  
-> AI는 해당 설계를 코드로 구현하는 역할을 담당했습니다.
+여기에 더해 PR 단계에서도 사람이 라인 단위로 코드를 직접 읽는 대신 자동 코드 리뷰 에이전트를 한 겹 더 걸었습니다. GitHub Actions 워크플로(`claude-pr-review.yml`)에서 PR 댓글에 `@claude` 트리거가 달리면 Claude가 코드 품질·잠재 버그·성능·보안 네 항목으로 자동 리뷰 코멘트를 남기도록 구성했고, 코드 리뷰 자체도 하네스의 일부로 편입되었습니다. 더 나아가 자동 리뷰가 남긴 코멘트의 반영 또한 사람이 직접 손대지 않고 implementer 에이전트를 다시 호출해 수정 커밋을 만들도록 했습니다. 즉 코드 작성 → 자동 리뷰 → 리뷰 반영 수정이라는 세 단계가 모두 에이전트 파이프라인 안에서 닫혀 순환했고, 사람은 그 순환이 의도대로 굴러가는지를 바깥에서 모니터링하는 위치에 있었습니다.
 
----
+머지 전 사람이 직접 들이는 시간은 (가) 변경의 영향 범위가 기존 모듈로 새지 않았는지 확인하는 일과 (나) 로컬에서 실제 시나리오를 직접 돌려 보며 테스트 커버리지가 비어 있는 구간을 찾아 보강하는 일, 두 가지에 집중되었습니다. 후자의 과정에서 자동 생성된 테스트만으로는 잡히지 않던 엣지 케이스, 예를 들면 동일 사용자에 대한 신규 UserStat 행 동시 생성 경쟁이나, 활성 코스가 두 건 이상 남게 되는 시점을 찾아 추가 테스트를 명세에 반영하고 다음 사이클에서 보강하는 식으로 테스트 범위를 늘려 갔습니다.
+
+해 보면서 느낀 점은 두 가지였습니다.
+
+첫째, 사람이 해야 할 일이 줄어든다기보다 작업의 무게중심이 앞쪽으로 옮겨 간다는 것이었습니다. 도메인을 어떻게 쪼갤지, 어떤 알고리즘을 어떤 파라미터로 쓸지, Mock 경계를 어디에 둘지, 어떤 테스트 시나리오를 명세할지가 결과물 품질을 결정했고, architecture·코드 컨벤션·작업 단위 명세를 사이클 시작 전에 단단히 적어 두는 정도가 사실상 가장 큰 변수였습니다.
+
+둘째, 최근에는 프로그래머가 코드를 직접 작성하거나 읽지 않고 오로지 에이전트만 조작해서 결과물을 만드는 형태의 해커톤, 이른바 '랄프톤'도 등장하고 있는데, 이번에 직접 사이클을 돌려 본 뒤 그 흐름이 단순한 유행만은 아닐 수 있겠다는 생각이 들었습니다. 다만 그렇다고 해서 개발자에게 요구되는 능력이 사라지는 것은 아니라, 요구되는 능력의 종류가 옮겨 가고 있다는 인상을 받았습니다. 이제 더 중요해지는 능력은 (가) 검증을 위해 문제를 작은 단위로 쪼개는 능력, (나) 기획 요구사항을 개발 관점의 명세 즉, 영향 범위, 인터페이스 경계, 트랜잭션 경계, 동시성 가정, 테스트 시나리오로 번역해 내는 능력, (다) 결과물의 정합성을 검증하기 위해 무엇을 어떤 방식으로 체크해야 하는지를 설계하는 능력이라고 느꼈습니다. 결국 코드를 직접 읽는 능력이나 AI를 써서 빠르게 초안을 받아 내는 능력만큼이나, 받은 결과물이 무엇을 하지 않고 있는지를 짚어 낼 수 있는 능력이 결과 품질을 좌우했습니다.
+
+요약하면, 코드 작성과 반복적인 테스트·디버깅, 코드 리뷰, 그리고 리뷰 코멘트의 반영까지 모두 에이전트 파이프라인 안에서 자동으로 순환되도록 두고, 사람은 무엇을 / 왜 / 어떻게 만들지에 대한 설계 판단과 영향 범위 검증, 로컬 시나리오 기반 테스트 보강, 그리고 사이클 자체가 의도대로 굴러가는지에 대한 메타 모니터링에 집중하는 구성으로 진행했습니다.
 
 ## 실행 화면
 
-> 아래 캡처를 추가해 주세요.
+**캡처 1** — `./gradlew :learning-api:bootRun --args='--spring.profiles.active=local'` 실행 화면
 
-**캡처 1**: 로컬 서버 실행 화면 (`./gradlew :learning-api:bootRun --args='--spring.profiles.active=local'`)
+![로컬 실행 화면](local.png)
 
-```
-[ 캡처 이미지 삽입 ]
-```
+**캡처 2** — `./gradlew :learning-api:test` 전체 통과 화면
 
-**캡처 2**: 테스트 전체 통과 화면 (`./gradlew :learning-api:test`)
-
-```
-[ 캡처 이미지 삽입 ]
-```
+![테스트 실행 화면](test.png)
