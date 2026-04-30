@@ -1,6 +1,7 @@
 package maeilmail.learning.domain.userstat;
 
 import lombok.RequiredArgsConstructor;
+import maeilmail.learning.common.exception.ResourceNotFoundException;
 import maeilmail.learning.domain.userstat.dto.UserStatDto;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,7 @@ public class UserStatService {
     @Transactional(readOnly = true)
     public UserStatDto findByEmail(String userEmail) {
         UserStat stat = userStatRepository.findByUserEmail(userEmail)
-                .orElseThrow(() -> new IllegalArgumentException("사용자 통계를 찾을 수 없습니다. email=" + userEmail));
+                .orElseThrow(() -> new ResourceNotFoundException("사용자 통계를 찾을 수 없습니다. email=" + userEmail));
         return UserStatDto.from(stat);
     }
 

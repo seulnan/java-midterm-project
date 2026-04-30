@@ -3,6 +3,7 @@ package maeilmail.learning.domain.wrongnote;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import maeilmail.learning.common.exception.ResourceNotFoundException;
 import maeilmail.learning.domain.wrongnote.dto.ReviewRequest;
 import maeilmail.learning.domain.wrongnote.dto.WrongNoteDto;
 import org.springframework.data.domain.Page;
@@ -49,7 +50,7 @@ public class WrongNoteService {
     @Transactional
     public WrongNoteDto review(Long id, ReviewRequest request) {
         WrongNote note = wrongNoteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("오답노트를 찾을 수 없습니다. id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("오답노트를 찾을 수 없습니다. id=" + id));
         note.applyReview(request.isCorrect());
         return WrongNoteDto.from(note);
     }
