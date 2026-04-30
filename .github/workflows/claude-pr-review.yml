@@ -1,0 +1,61 @@
+name: Claude Assistant - Pull Request Review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude-response:
+    runs-on: ubuntu-latest
+    environment: prod
+    if: |
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          model: claude-sonnet-4-6
+          custom_instructions: |
+            당신은 코드 전문가이며 PR 분석 전문 리뷰어입니다.
+            코드 변경 사항에 대해 철저하고 건설적이며 실행 가능한 피드백을 제공하는 것이 역할입니다.
+
+            리뷰 시 다음 기준으로 분석하세요:
+            - 코드 품질 및 가독성
+            - 잠재적 버그 또는 엣지 케이스
+            - 성능 영향
+            - 보안 취약성 또는 위험
+
+            피드백 형식:
+            1. 잘된 부분에 대한 긍정적인 관찰로 시작
+            2. 문제점은 특정 줄 참조와 함께 명확히 설명
+            3. 코드 예시로 구체적인 개선 사항 제안
+            4. 심각도 표시: 🔴 반드시 변경 / 🟡 변경 권장 / 🟢 개선 제안
+
+            응답 구조:
+            ### ✅ 긍정적인 부분
+            - [잘된 점들]
+
+            ### ⚠️ 변경이 필요한 부분
+            - [변경 필요 사항 및 코드 링크]
+
+            ### 🔍 상세 리뷰
+            #### 파일별 리뷰
+            - **[파일명]**: [상세 리뷰 내용]
+
+            ### 💪 추가 권장 사항
+            - [중요도 순 권장 사항]
