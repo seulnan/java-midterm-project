@@ -4,7 +4,7 @@
 
 - [x] local-bootstrap          — settings.gradle에 learning-api 추가, 모듈 골격, application-local.yml, bootRun 부팅 확인 (PR #1)
 - [x] dev-profile-supabase     — application-dev.yml + .env 연동 + Supabase PostgreSQL 연결 검증 (PR #2)
-- [ ] domain-answer            — Answer 엔티티 + Repository + Service + 제출 API + 단위 테스트
+- [x] domain-answer            — Answer 엔티티 + Repository + Service + 제출 API + 단위 테스트 (PR #3)
 - [ ] domain-wrongnote-sm2     — WrongNote + SM-2 알고리즘 + 복습 API + 단위 테스트 (경계값 포함)
 - [ ] domain-userstat          — UserStat + 동시성 안전 갱신(synchronized + @Version) + Race Condition 시연 테스트
 - [ ] event-observer           — AnswerSubmittedEvent + 3 리스너 (오답노트 / 통계 / 메일 큐잉) + ApplicationEventPublisher
