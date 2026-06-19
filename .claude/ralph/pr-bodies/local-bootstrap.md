@@ -2,7 +2,7 @@
 learning-api 독립 Spring Boot 모듈 골격 추가 (포트 8081, local/H2 프로파일 부팅 확인)
 
 ## 왜
-매일메일 Plus 학습 기능(답안 제출, 오답노트 SM-2, 코스 정책, 비동기 메일 발송)을 원본 서비스에 영향 없이 개발하기 위해 독립 모듈이 필요하다. 기존 mail-app(포트 8080)과 공존하며, 학습 기능만의 DB 스키마(Supabase PostgreSQL)를 운영한다.
+QBit 학습 기능(답안 제출, 오답노트 SM-2, 코스 정책, 비동기 메일 발송)을 원본 서비스에 영향 없이 개발하기 위해 독립 모듈이 필요하다. 기존 mail-app(포트 8080)과 공존하며, 학습 기능만의 DB 스키마(Supabase PostgreSQL)를 운영한다.
 
 ## 어떻게
 - `settings.gradle`에 `include 'learning-api'` 추가

@@ -1,4 +1,4 @@
-# 매일메일 Plus — learning-api
+# QBit — learning-api
 
 ## 프로그램 개요
 

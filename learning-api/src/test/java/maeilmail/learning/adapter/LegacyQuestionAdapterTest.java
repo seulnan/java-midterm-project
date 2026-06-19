@@ -21,7 +21,9 @@ class LegacyQuestionAdapterTest {
         Optional<LegacyQuestion> result = adapter.findById(1L);
         assertThat(result).isPresent();
         assertThat(result.get().id()).isEqualTo(1L);
-        assertThat(result.get().title()).isEqualTo("Question #1");
+        // 큐레이션된 실제 면접 질문 텍스트가 채워져 있어야 한다(placeholder가 아님).
+        assertThat(result.get().title()).isNotBlank();
+        assertThat(result.get().content()).isNotBlank();
     }
 
     @Test

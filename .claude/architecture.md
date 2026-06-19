@@ -1,4 +1,4 @@
-# Architecture — 매일메일 Plus
+# Architecture — QBit
 
 ## 스택
 - Java 17, Spring Boot 3.5.3, Gradle 멀티모듈 (build-recipe-plugin)

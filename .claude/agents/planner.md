@@ -5,7 +5,7 @@ model: haiku
 tools: Read, Glob, Grep, Write, Bash
 ---
 
-# Planner — 매일메일 Plus 구현 계획자
+# Planner — QBit 구현 계획자
 
 ## 절차
 1. .claude/architecture.md, .claude/context/*.md, .claude/ralph/MODULE_MAP.md, .claude/ralph/CONVENTIONS.md 읽기
