@@ -26,18 +26,30 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor,
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        String profiles = environment.getProperty("spring.profiles.active", "");
-        if (!profiles.contains("local") && !profiles.contains("dev")) {
-            return; // 테스트 등에서는 .env를 읽지 않는다
+        // 테스트 런타임(JUnit이 클래스패스에 있음)에서는 .env를 읽지 않는다 → Mock 유지.
+        // 프로필 flag 전달 여부와 무관하게 동작하도록 JUnit 유무로 판정한다.
+        if (isTestRuntime()) {
+            return;
         }
         File dotenv = locate();
         if (dotenv == null) {
+            System.out.println("📄 .env 파일을 찾지 못했습니다 (user.dir="
+                    + System.getProperty("user.dir") + ") — 환경변수로 폴백합니다.");
             return;
         }
         Map<String, Object> values = parse(dotenv);
         if (!values.isEmpty()) {
             environment.getPropertySources().addLast(new MapPropertySource("dotenv", values));
             System.out.printf("📄 .env 로드됨: %s (%d개 값)%n", dotenv.getAbsolutePath(), values.size());
+        }
+    }
+
+    private boolean isTestRuntime() {
+        try {
+            Class.forName("org.junit.jupiter.api.Test");
+            return true;
+        } catch (Throwable t) {
+            return false;
         }
     }
 
