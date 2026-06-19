@@ -15,3 +15,8 @@ management:
     web:
       exposure:
         include: health
+  health:
+    # 메일 발송은 LearningMailSender로 자체 관리한다. spring.mail.* 가 설정돼 있어도
+    # 기본 MailHealthIndicator가 SMTP 연결을 시도해 health를 DOWN으로 만들지 않도록 끈다.
+    mail:
+      enabled: false

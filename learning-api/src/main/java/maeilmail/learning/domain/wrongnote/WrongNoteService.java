@@ -9,6 +9,7 @@ import maeilmail.learning.domain.wrongnote.dto.WrongNoteDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -17,7 +18,10 @@ public class WrongNoteService {
 
     private final WrongNoteRepository wrongNoteRepository;
 
-    @Transactional
+    // AFTER_COMMIT 동기 리스너에서 호출된다. 이 시점엔 직전 트랜잭션이 이미 커밋됐지만
+    // 스레드에 동기화가 남아 있어, REQUIRED면 새 물리 트랜잭션을 열지 않아 save가 커밋되지 않는다.
+    // REQUIRES_NEW로 독립 트랜잭션을 강제해 오답노트 등록/삭제가 확실히 반영되게 한다.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registerOrSkip(String userEmail, Long questionId) {
         wrongNoteRepository.findByUserEmailAndQuestionId(userEmail, questionId)
                 .ifPresentOrElse(
@@ -26,7 +30,7 @@ public class WrongNoteService {
                 );
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void removeIfExists(String userEmail, Long questionId) {
         wrongNoteRepository.findByUserEmailAndQuestionId(userEmail, questionId)
                 .ifPresent(wrongNoteRepository::delete);

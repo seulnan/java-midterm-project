@@ -56,9 +56,27 @@ class AnswerControllerTest {
     }
 
     @Test
-    void POST_answers_submittedText_빈_문자열_400() throws Exception {
-        String badJson = """
+    void POST_answers_submittedText_빈_문자열은_오답으로_접수된다() throws Exception {
+        // 빈 문자열("")은 미작성/오답으로 간주해 채점 흐름을 타야 한다(400이 아니라 201 + isCorrect=false).
+        String json = """
                 {"questionId": 1, "submittedText": "", "responseTimeMs": 1000, "userEmail": "u@t.com"}
+                """;
+        given(answerService.submitAnswer(any()))
+                .willReturn(new SubmitAnswerResponse(1L, false, 0, "오답입니다. 오답노트에 추가됩니다."));
+
+        mockMvc.perform(post("/api/answers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.isCorrect").value(false))
+                .andExpect(jsonPath("$.data.score").value(0));
+    }
+
+    @Test
+    void POST_answers_submittedText_누락_시_400() throws Exception {
+        // null은 여전히 거부(@NotNull) — 서비스의 isBlank() NPE를 막는다.
+        String badJson = """
+                {"questionId": 1, "responseTimeMs": 1000, "userEmail": "u@t.com"}
                 """;
 
         mockMvc.perform(post("/api/answers")
