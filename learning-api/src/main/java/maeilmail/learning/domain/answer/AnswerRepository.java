@@ -6,4 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AnswerRepository extends JpaRepository<Answer, Long> {
 
     List<Answer> findTop20ByUserEmailOrderByCreatedAtDesc(String userEmail);
+
+    List<Answer> findByUserEmailOrderByCreatedAtAsc(String userEmail);
+
+    List<Answer> findByUserEmailAndQuestionIdOrderByCreatedAtAsc(String userEmail, Long questionId);
 }

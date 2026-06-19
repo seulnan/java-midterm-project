@@ -16,10 +16,9 @@ import maeilmail.learning.domain.grading.GradeResult;
 public final class QbitMailTemplate {
 
     private static final String BRAND = "QBit";
-    // 호스팅된 프런트엔드가 없는 백엔드 프로젝트이므로, CTA는 로컬에서 실제로 동작하는
-    // 복습 조회 API(GET /api/wrong-notes/me/due)를 수신자 이메일로 개인화해 가리킨다.
-    // (외부 도메인 링크 금지 — 실존 사이트로 오인 유도 방지)
-    private static final String REVIEW_BASE = "http://localhost:8081/api/wrong-notes/me/due";
+    // "복습하기" 버튼 → 복습 페이지. 내가 제출한 답안·질문·피드백·시도별 점수를 보여준다.
+    // (외부 도메인 링크 금지 — 로컬에서 실제로 동작하는 정적 페이지)
+    private static final String REVIEW_BASE = "http://localhost:8081/review.html";
     // 질문 메일의 "답안 작성" 버튼이 가리키는 답안 페이지(정적 리소스).
     private static final String ANSWER_BASE = "http://localhost:8081/answer.html";
 

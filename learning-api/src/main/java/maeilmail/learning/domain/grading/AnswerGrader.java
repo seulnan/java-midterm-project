@@ -16,7 +16,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class AnswerGrader {
 
-    private static final int PASS_SCORE = 60;
+    // 핵심 개념을 충분히 짚어야 통과. 3개 중 2개(67점)는 미통과 → 한 개념을 놓치면 오답노트로.
+    private static final int PASS_SCORE = 70;
 
     public GradeResult grade(Long questionId, String submission) {
         QuestionKey key = GradingKeys.get(questionId);

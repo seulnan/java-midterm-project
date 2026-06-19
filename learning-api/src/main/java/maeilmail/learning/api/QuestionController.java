@@ -7,6 +7,7 @@ import maeilmail.learning.adapter.LegacyQuestionPort;
 import maeilmail.learning.common.ApiResponse;
 import maeilmail.learning.common.exception.ResourceNotFoundException;
 import maeilmail.learning.infrastructure.mail.LearningMailSender;
+import maeilmail.learning.infrastructure.mail.MailThreadStore;
 import maeilmail.learning.infrastructure.mail.QbitMailTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +29,7 @@ public class QuestionController {
 
     private final LegacyQuestionPort questionPort;
     private final LearningMailSender mailSender;
+    private final MailThreadStore mailThreadStore;
 
     /** 답안 페이지가 질문 본문을 그릴 때 호출한다. */
     @GetMapping("/{id}")
@@ -45,7 +47,9 @@ public class QuestionController {
 
         QbitMailTemplate.Mail mail = QbitMailTemplate.questionDelivery(question, request.userEmail());
         log.info("[질문 메일] 발송: user={}, question={}({})", request.userEmail(), question.id(), question.title());
-        mailSender.send(request.userEmail(), mail.subject(), mail.html());
+        String messageId = mailSender.send(request.userEmail(), mail.subject(), mail.html());
+        // 답안 피드백을 이 질문 메일의 답장(같은 스레드)으로 보내기 위해 Message-ID를 기억한다.
+        mailThreadStore.remember(request.userEmail(), question.id(), messageId, mail.subject());
 
         return ApiResponse.ok(new DeliverResult(question.id(), question.title(), request.userEmail()));
     }

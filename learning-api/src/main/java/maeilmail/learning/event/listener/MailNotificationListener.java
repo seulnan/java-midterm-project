@@ -8,6 +8,7 @@ import maeilmail.learning.adapter.LegacyQuestionPort;
 import maeilmail.learning.domain.answer.event.AnswerSubmittedEvent;
 import maeilmail.learning.domain.grading.GradeResult;
 import maeilmail.learning.infrastructure.mail.LearningMailSender;
+import maeilmail.learning.infrastructure.mail.MailThreadStore;
 import maeilmail.learning.infrastructure.mail.QbitMailTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ public class MailNotificationListener {
 
     private final LearningMailSender mailSender;
     private final LegacyQuestionPort questionPort;
+    private final MailThreadStore mailThreadStore;
 
     @Async("mailExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -38,6 +40,12 @@ public class MailNotificationListener {
 
         log.info("[피드백 메일] {} 발송: user={}, question={}, 점수={}",
                 grade.correct() ? "정답" : "오답", event.userEmail(), event.questionId(), grade.score());
-        mailSender.send(event.userEmail(), mail.subject(), mail.html());
+
+        // 질문 메일이 있으면 그 스레드의 답장(Re:)으로 보내고, 없으면 일반 발송.
+        mailThreadStore.find(event.userEmail(), event.questionId())
+                .ifPresentOrElse(
+                        ref -> mailSender.sendReply(event.userEmail(), "Re: " + ref.subject(), mail.html(), ref.messageId()),
+                        () -> mailSender.send(event.userEmail(), mail.subject(), mail.html())
+                );
     }
 }

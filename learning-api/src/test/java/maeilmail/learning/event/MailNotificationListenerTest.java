@@ -11,6 +11,7 @@ import maeilmail.learning.adapter.LegacyQuestionPort;
 import maeilmail.learning.domain.answer.event.AnswerSubmittedEvent;
 import maeilmail.learning.event.listener.MailNotificationListener;
 import maeilmail.learning.infrastructure.mail.LearningMailSender;
+import maeilmail.learning.infrastructure.mail.MailThreadStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -25,6 +26,10 @@ class MailNotificationListenerTest {
 
     @Mock
     private LegacyQuestionPort questionPort;
+
+    // 스레드 정보 없음(find()→Optional.empty()) → 일반 발송 경로를 탄다.
+    @Mock
+    private MailThreadStore mailThreadStore;
 
     @InjectMocks
     private MailNotificationListener listener;

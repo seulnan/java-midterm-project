@@ -49,10 +49,21 @@ class AnswerGraderTest {
     }
 
     @Test
-    void 통과_임계값_경계_3개중_2개면_통과() {
-        // Q8: 멱등성 + 전체/부분 교체 2개 언급 (67점 → 통과)
-        GradeResult r = grader.grade(8L, "PUT은 전체 교체라 멱등하고, PATCH는 부분 수정입니다.");
-        assertThat(r.score()).isGreaterThanOrEqualTo(60);
+    void 핵심개념_3개중_2개만_짚으면_미통과_오답() {
+        // Q12: 메모리 공유 + 컨텍스트 스위칭 2개만(동기화 누락) → 67점, 통과 임계값(70) 미만 → 오답
+        GradeResult r = grader.grade(12L,
+                "스레드는 같은 프로세스의 힙 메모리를 공유하고 스택은 따로 가집니다. "
+                        + "그래서 컨텍스트 스위칭 비용이 프로세스보다 작습니다.");
+        assertThat(r.score()).isEqualTo(67);
+        assertThat(r.correct()).isFalse();
+        assertThat(r.missed()).extracting(Concept::label).containsExactly("동기화 필요성");
+    }
+
+    @Test
+    void 핵심개념_전부_짚으면_통과() {
+        GradeResult r = grader.grade(8L,
+                "PUT은 리소스 전체를 교체하고 멱등합니다. PATCH는 일부 필드만 부분 수정합니다.");
+        assertThat(r.score()).isEqualTo(100);
         assertThat(r.correct()).isTrue();
     }
 }

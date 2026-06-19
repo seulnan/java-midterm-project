@@ -16,8 +16,17 @@ public class SmtpMailSender implements LearningMailSender {
     private final String fromAddress;
 
     @Override
-    public void send(String to, String subject, String body) {
-        // body는 QbitMailTemplate이 만든 HTML이다. MimeMessage + setText(html=true)로 발송한다.
+    public String send(String to, String subject, String body) {
+        return doSend(to, subject, body, null);
+    }
+
+    @Override
+    public String sendReply(String to, String subject, String body, String inReplyToMessageId) {
+        return doSend(to, subject, body, inReplyToMessageId);
+    }
+
+    // body는 QbitMailTemplate이 만든 HTML이다. inReplyTo가 있으면 같은 스레드의 답장으로 보낸다.
+    private String doSend(String to, String subject, String body, String inReplyToMessageId) {
         try {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
@@ -25,8 +34,13 @@ public class SmtpMailSender implements LearningMailSender {
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(body, true);
-            log.info("[SMTP MAIL] to={} subject={}", to, subject);
+            if (inReplyToMessageId != null) {
+                message.setHeader("In-Reply-To", inReplyToMessageId);
+                message.setHeader("References", inReplyToMessageId);
+            }
+            log.info("[SMTP MAIL] to={} subject={}{}", to, subject, inReplyToMessageId != null ? " (reply)" : "");
             javaMailSender.send(message);
+            return message.getMessageID();
         } catch (MailException e) {
             throw e;
         } catch (Exception e) {

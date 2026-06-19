@@ -96,9 +96,27 @@
       const box = $('result');
       box.style.display = 'block';
       box.className = 'result ' + (d.isCorrect ? 'ok' : 'no');
-      box.innerHTML = '<b>' + (d.isCorrect ? '정답입니다 ✓' : '오답입니다') + '</b>'
-        + d.message
-        + '<div class="muted" style="margin-top:8px">결과와 다음 학습 안내를 <b>' + email + '</b> 메일로 보냈어요. 받은편지함을 확인하세요.</div>';
+
+      // 처리 현황을 시간 순으로 보여준다 — 서버에서 실제로 일어나는 흐름
+      // (제출 → 채점 → 오답노트/정답처리 → 비동기 피드백 메일 발송)을 단계별로 노출.
+      box.innerHTML = '<div style="font-weight:700;font-size:15px;margin-bottom:10px">'
+        + (d.isCorrect ? '정답입니다 ✓' : '오답입니다') + '</div><div id="timeline"></div>';
+
+      const steps = [
+        '① 답안 제출됨',
+        '② 채점 완료 — <b>' + d.score + '점</b> (' + (d.isCorrect ? '정답' : '오답') + ')',
+        d.isCorrect ? '③ 정답 처리 — 오답노트에 담지 않음' : '③ 오답노트에 등록 — 놓친 개념(약점)·복습 일정 기록',
+        '④ 📧 피드백 메일 발송 완료 — <b>' + email + '</b> 받은편지함을 확인하세요'
+      ];
+      const tl = $('timeline');
+      steps.forEach((s, i) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'opacity:0;transform:translateY(4px);transition:opacity .3s,transform .3s;'
+          + 'padding:6px 0;font-size:14px;line-height:1.55;';
+        row.innerHTML = s;
+        tl.appendChild(row);
+        setTimeout(() => { row.style.opacity = '1'; row.style.transform = 'none'; }, 350 + i * 800);
+      });
     })
     .catch(() => { $('submit').disabled = false; alert('제출에 실패했습니다.'); });
   });
