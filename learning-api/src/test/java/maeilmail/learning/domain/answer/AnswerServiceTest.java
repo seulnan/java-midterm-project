@@ -8,11 +8,13 @@ import static org.mockito.Mockito.verify;
 import maeilmail.learning.domain.answer.dto.SubmitAnswerRequest;
 import maeilmail.learning.domain.answer.dto.SubmitAnswerResponse;
 import maeilmail.learning.domain.answer.event.AnswerSubmittedEvent;
+import maeilmail.learning.domain.grading.AnswerGrader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -21,6 +23,10 @@ class AnswerServiceTest {
 
     @Mock
     private AnswerRepository answerRepository;
+
+    // 실제 채점 알고리즘을 그대로 사용(외부 의존 없음).
+    @Spy
+    private AnswerGrader answerGrader = new AnswerGrader();
 
     @Mock
     private ApplicationEventPublisher eventPublisher;

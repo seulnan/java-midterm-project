@@ -18,15 +18,24 @@ public class WrongNoteService {
 
     private final WrongNoteRepository wrongNoteRepository;
 
+    public void registerOrSkip(String userEmail, Long questionId) {
+        registerOrSkip(userEmail, questionId, null);
+    }
+
     // AFTER_COMMIT 동기 리스너에서 호출된다. 이 시점엔 직전 트랜잭션이 이미 커밋됐지만
     // 스레드에 동기화가 남아 있어, REQUIRED면 새 물리 트랜잭션을 열지 않아 save가 커밋되지 않는다.
     // REQUIRES_NEW로 독립 트랜잭션을 강제해 오답노트 등록/삭제가 확실히 반영되게 한다.
+    // weakness: 채점에서 놓친 핵심 개념(왜 오답인지)을 함께 기록한다.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void registerOrSkip(String userEmail, Long questionId) {
+    public void registerOrSkip(String userEmail, Long questionId, String weakness) {
         wrongNoteRepository.findByUserEmailAndQuestionId(userEmail, questionId)
                 .ifPresentOrElse(
-                        note -> {}, // 이미 있으면 무시
-                        () -> wrongNoteRepository.save(WrongNote.create(userEmail, questionId))
+                        note -> note.recordWeakness(weakness), // 이미 있으면 약점만 최신화
+                        () -> {
+                            WrongNote note = WrongNote.create(userEmail, questionId);
+                            note.recordWeakness(weakness);
+                            wrongNoteRepository.save(note);
+                        }
                 );
     }
 

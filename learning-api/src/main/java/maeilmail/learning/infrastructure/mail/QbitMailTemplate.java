@@ -4,6 +4,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import maeilmail.learning.adapter.LegacyQuestion;
+import maeilmail.learning.domain.grading.Concept;
+import maeilmail.learning.domain.grading.GradeResult;
 
 /**
  * QBit 발송 메일의 제목/본문(HTML)을 생성하는 템플릿.
@@ -18,26 +20,60 @@ public final class QbitMailTemplate {
     // 복습 조회 API(GET /api/wrong-notes/me/due)를 수신자 이메일로 개인화해 가리킨다.
     // (외부 도메인 링크 금지 — 실존 사이트로 오인 유도 방지)
     private static final String REVIEW_BASE = "http://localhost:8081/api/wrong-notes/me/due";
+    // 질문 메일의 "답안 작성" 버튼이 가리키는 답안 페이지(정적 리소스).
+    private static final String ANSWER_BASE = "http://localhost:8081/answer.html";
 
     public record Mail(String subject, String html) {}
 
     private QbitMailTemplate() {
     }
 
-    /** 오답 제출 직후 — 방금 틀린 문제를 오답노트에 담았음을 알린다. */
-    public static Mail wrongAnswerNotice(LegacyQuestion question, String userEmail) {
-        String subject = "[" + BRAND + "] 오답을 복습 노트에 담았어요 — " + question.title();
-        String body = card(
-                badge(question.category()),
-                esc(question.title()),
-                esc(question.content())
-        )
-                + paragraph("방금 제출한 답이 아쉬웠어요. 이 문제를 <b>오답 노트</b>에 담았습니다. "
-                + "QBit은 한 번 틀린 문제를 잊을 때쯤 다시 보여드리는 <b>간격 반복(SM-2)</b> 방식으로 복습을 설계해요.")
-                + scheduleBox("내일 다시 출제", "맞히면 복습 간격이 1일 → 3일 → 7일 …로 점점 벌어지고, "
-                + "또 틀리면 간격이 1일로 초기화돼 더 자주 만나게 됩니다.")
-                + ctaButton("오답 노트에서 복습하기", reviewUrl(userEmail));
-        return new Mail(subject, layout("틀린 문제, 그냥 넘기지 않을게요", body));
+    /** 오늘의 질문 — 사용자에게 면접 질문을 보내고, 메일 안에서 답안 페이지로 연결한다. */
+    public static Mail questionDelivery(LegacyQuestion question, String userEmail) {
+        String subject = "[" + BRAND + "] 오늘의 면접 질문 — " + question.title();
+        String body = paragraph("오늘의 질문이 도착했어요. 아래 문제를 보고 <b>버튼을 눌러 답안을 작성</b>하면, "
+                + "QBit이 채점하고 결과를 다시 메일로 보내드립니다.")
+                + card(badge(question.category()), esc(question.title()), esc(question.content()))
+                + ctaButton("답안 작성하기", answerUrl(question.id(), userEmail));
+        return new Mail(subject, layout("오늘의 면접 질문", body));
+    }
+
+    /**
+     * 답안 피드백 — 채점 결과(점수·짚은 개념·놓친 개념·모범답안)를 담는다.
+     * 정답이면 칭찬 + 난이도 안내, 오답이면 약점(놓친 개념 + 왜)과 복습 주기 근거를 보여준다.
+     */
+    public static Mail answerFeedback(LegacyQuestion question, GradeResult grade, String userEmail) {
+        boolean correct = grade.correct();
+        int total = grade.matched().size() + grade.missed().size();
+        String subject = "[" + BRAND + "] " + (correct ? "정답이에요! " : "오답 피드백 ")
+                + "(" + grade.score() + "점) — " + question.title();
+
+        StringBuilder body = new StringBuilder();
+        body.append(card(badge(question.category()), esc(question.title()), esc(question.content())));
+        body.append(scoreLine(grade.score(), correct, grade.matched().size(), total));
+
+        if (!grade.matched().isEmpty()) {
+            body.append(paragraph("<b>잘 짚은 개념:</b> " + esc(String.join(", ", grade.matched()))));
+        }
+        if (!correct && !grade.missed().isEmpty()) {
+            body.append(missedBlock(grade.missed()));
+        }
+        if (grade.modelAnswer() != null) {
+            body.append(modelBox(grade.modelAnswer()));
+        }
+
+        if (correct) {
+            body.append(noticeBox("#047857", "#ecfdf5", "✓ 정답 처리 완료",
+                    "이 문제는 오답 노트에 담지 않았어요. 정답률이 오르면 다음 문제의 난이도가 한 단계 올라갑니다."));
+        } else {
+            body.append(scheduleBox("내일 다시 출제 (1일 뒤)",
+                    "처음 틀렸으니 가장 짧은 주기로 다시 만나요. 복습에서 맞히면 간격이 1일 → 3일 → 7일로 벌어지고, "
+                    + "또 틀리면 1일로 초기화돼 더 자주 보게 됩니다."));
+            body.append(ctaButton("오답 노트에서 복습하기", reviewUrl(userEmail)));
+        }
+
+        String heading = correct ? "정답입니다 ✓" : "어떤 개념이 부족했는지 짚어봤어요";
+        return new Mail(subject, layout(heading, body.toString()));
     }
 
     /** 매일 아침 — 오늘 복습 기한이 도래한 문제들을 모아 보낸다. */
@@ -59,6 +95,11 @@ public final class QbitMailTemplate {
 
     private static String reviewUrl(String userEmail) {
         return REVIEW_BASE + "?email=" + URLEncoder.encode(userEmail, StandardCharsets.UTF_8);
+    }
+
+    private static String answerUrl(Long questionId, String userEmail) {
+        return ANSWER_BASE + "?questionId=" + questionId
+                + "&email=" + URLEncoder.encode(userEmail, StandardCharsets.UTF_8);
     }
 
     // --- 조립 헬퍼 (인라인 스타일) ---
@@ -106,6 +147,39 @@ public final class QbitMailTemplate {
 
     private static String paragraph(String html) {
         return "<p style=\"font-size:14px;color:#374151;line-height:1.8;margin:0 0 12px;\">" + html + "</p>";
+    }
+
+    private static String scoreLine(int score, boolean correct, int matched, int total) {
+        String color = correct ? "#047857" : "#b91c1c";
+        String bg = correct ? "#ecfdf5" : "#fef2f2";
+        return "<div style=\"background:" + bg + ";border-radius:10px;padding:14px 16px;margin:14px 0;\">"
+                + "<span style=\"font-size:24px;font-weight:800;color:" + color + ";\">" + score + "점</span>"
+                + "<span style=\"font-size:13px;color:#6b7280;margin-left:10px;\">핵심 개념 " + total + "개 중 "
+                + matched + "개 충족</span></div>";
+    }
+
+    private static String missedBlock(List<Concept> missed) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div style=\"font-size:14px;font-weight:700;color:#b91c1c;margin:18px 0 6px;\">놓친 개념 (약점)</div>");
+        for (Concept c : missed) {
+            sb.append("<div style=\"border-left:3px solid #fca5a5;padding:8px 14px;margin:8px 0;\">"
+                    + "<div style=\"font-size:14px;font-weight:700;color:#111827;\">✗ " + esc(c.label()) + "</div>"
+                    + "<div style=\"font-size:13px;color:#4b5563;line-height:1.6;margin-top:3px;\">" + esc(c.why()) + "</div>"
+                    + "</div>");
+        }
+        return sb.toString();
+    }
+
+    private static String noticeBox(String fg, String bg, String title, String desc) {
+        return "<div style=\"background:" + bg + ";border-radius:8px;padding:12px 16px;margin:14px 0;\">"
+                + "<div style=\"font-size:13px;font-weight:700;color:" + fg + ";\">" + esc(title) + "</div>"
+                + "<div style=\"font-size:13px;color:#4b5563;line-height:1.6;margin-top:4px;\">" + esc(desc) + "</div></div>";
+    }
+
+    private static String modelBox(String modelAnswer) {
+        return "<div style=\"background:#f5f6ff;border-radius:10px;padding:14px 16px;margin:14px 0;\">"
+                + "<div style=\"font-size:13px;font-weight:700;color:#4338ca;margin-bottom:4px;\">모범답안 요지</div>"
+                + "<div style=\"font-size:13px;color:#374151;line-height:1.7;\">" + esc(modelAnswer) + "</div></div>";
     }
 
     private static String scheduleBox(String when, String desc) {

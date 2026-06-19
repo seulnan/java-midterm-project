@@ -10,7 +10,8 @@ public record WrongNoteDto(
         double easeFactor,
         int intervalDays,
         LocalDateTime nextReviewAt,
-        LocalDateTime lastReviewedAt
+        LocalDateTime lastReviewedAt,
+        String weakness
 ) {
     public static WrongNoteDto from(WrongNote note) {
         return new WrongNoteDto(
@@ -20,7 +21,8 @@ public record WrongNoteDto(
                 note.getEaseFactor(),
                 note.getIntervalDays(),
                 note.getNextReviewAt(),
-                note.getLastReviewedAt()
+                note.getLastReviewedAt(),
+                note.getWeakness()
         );
     }
 }

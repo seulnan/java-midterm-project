@@ -53,6 +53,10 @@ public class WrongNote {
     @Column(nullable = false)
     private int intervalDays;
 
+    // 채점에서 놓친 핵심 개념(약점). "왜 오답인지"를 오답노트에 함께 기록한다.
+    @Column(columnDefinition = "TEXT")
+    private String weakness;
+
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -66,6 +70,10 @@ public class WrongNote {
         note.intervalDays = 1;
         note.nextReviewAt = LocalDateTime.now().plusDays(1);
         return note;
+    }
+
+    public void recordWeakness(String weakness) {
+        this.weakness = weakness;
     }
 
     public void applyReview(boolean isCorrect) {

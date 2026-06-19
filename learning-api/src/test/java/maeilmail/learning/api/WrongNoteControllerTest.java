@@ -38,7 +38,7 @@ class WrongNoteControllerTest {
 
     @Test
     void GET_wrong_notes_me_페이지_반환() throws Exception {
-        WrongNoteDto dto = new WrongNoteDto(1L, 5L, 0, 2.5, 1, LocalDateTime.now().plusDays(1), null);
+        WrongNoteDto dto = new WrongNoteDto(1L, 5L, 0, 2.5, 1, LocalDateTime.now().plusDays(1), null, "메모리 공유 여부");
         given(wrongNoteService.findMyNotes(eq("u@t.com"), any(PageRequest.class)))
                 .willReturn(new PageImpl<>(List.of(dto)));
 
@@ -50,7 +50,7 @@ class WrongNoteControllerTest {
 
     @Test
     void GET_wrong_notes_me_due_복습_대상_반환() throws Exception {
-        WrongNoteDto dto = new WrongNoteDto(2L, 7L, 1, 2.4, 1, LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(2));
+        WrongNoteDto dto = new WrongNoteDto(2L, 7L, 1, 2.4, 1, LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(2), null);
         given(wrongNoteService.findDueNotes("u@t.com")).willReturn(List.of(dto));
 
         mockMvc.perform(get("/api/wrong-notes/me/due").param("email", "u@t.com"))
@@ -61,7 +61,7 @@ class WrongNoteControllerTest {
 
     @Test
     void POST_wrong_notes_id_review_정답_처리() throws Exception {
-        WrongNoteDto dto = new WrongNoteDto(1L, 5L, 1, 2.6, 2, LocalDateTime.now().plusDays(2), LocalDateTime.now());
+        WrongNoteDto dto = new WrongNoteDto(1L, 5L, 1, 2.6, 2, LocalDateTime.now().plusDays(2), LocalDateTime.now(), null);
         given(wrongNoteService.review(eq(1L), any(ReviewRequest.class))).willReturn(dto);
 
         mockMvc.perform(post("/api/wrong-notes/1/review")

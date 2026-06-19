@@ -1,8 +1,11 @@
 package maeilmail.learning.event.listener;
 
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import maeilmail.learning.domain.answer.event.AnswerSubmittedEvent;
+import maeilmail.learning.domain.grading.Concept;
+import maeilmail.learning.domain.grading.GradeResult;
 import maeilmail.learning.domain.wrongnote.WrongNoteService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -22,7 +25,15 @@ public class WrongNoteRegistrationListener {
         if (event.isCorrect()) {
             wrongNoteService.removeIfExists(event.userEmail(), event.questionId());
         } else {
-            wrongNoteService.registerOrSkip(event.userEmail(), event.questionId());
+            // 채점에서 놓친 개념(약점)을 오답노트에 함께 기록한다 — "왜 오답인지".
+            wrongNoteService.registerOrSkip(event.userEmail(), event.questionId(), weaknessOf(event.grade()));
         }
+    }
+
+    private String weaknessOf(GradeResult grade) {
+        if (grade == null || grade.missed().isEmpty()) {
+            return null;
+        }
+        return grade.missed().stream().map(Concept::label).collect(Collectors.joining(", "));
     }
 }

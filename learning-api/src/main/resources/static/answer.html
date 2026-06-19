@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QBit — 답안 작성</title>
+<style>
+  :root{ --bg:#f4f5f7; --card:#fff; --line:#e5e7eb; --fg:#111827; --muted:#6b7280; --accent:#4338ca; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--fg);min-height:100vh;
+    font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',Segoe UI,sans-serif;
+    display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;}
+  .wrap{width:100%;max-width:600px;}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .brand .logo{font-size:22px;font-weight:800;color:var(--accent);}
+  .brand .sub{font-size:13px;color:var(--muted);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:26px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .badge{display:inline-block;font-size:11px;font-weight:700;color:#4338ca;background:#eef2ff;
+    padding:3px 10px;border-radius:999px;margin-bottom:12px;}
+  .badge.fe{color:#047857;background:#ecfdf5;}
+  h1{font-size:20px;line-height:1.4;margin-bottom:10px;}
+  .content{font-size:14px;color:#4b5563;line-height:1.7;margin-bottom:20px;}
+  textarea{width:100%;min-height:140px;border:1px solid var(--line);border-radius:10px;
+    padding:14px;font-size:15px;line-height:1.6;resize:vertical;font-family:inherit;}
+  textarea:focus{outline:none;border-color:var(--accent);}
+  .row{display:flex;align-items:center;justify-content:space-between;margin-top:16px;gap:12px;}
+  .who{font-size:13px;color:var(--muted);}
+  button{background:var(--accent);color:#fff;border:0;border-radius:10px;
+    padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;}
+  button:disabled{opacity:.5;cursor:default;}
+  .result{margin-top:18px;padding:16px 18px;border-radius:10px;font-size:14px;line-height:1.6;display:none;}
+  .result.ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;}
+  .result.no{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;}
+  .result b{display:block;font-size:15px;margin-bottom:4px;}
+  .muted{color:var(--muted);font-size:13px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="logo">QBit</span><span class="sub">오늘의 면접 질문 · 답안 작성</span></div>
+  <div class="card">
+    <div id="qbadge" class="badge">…</div>
+    <h1 id="qtitle">질문을 불러오는 중…</h1>
+    <div id="qcontent" class="content"></div>
+
+    <textarea id="answer" placeholder="여기에 답안을 작성하세요. (비워두고 제출하면 오답으로 처리됩니다)"></textarea>
+    <div class="row">
+      <span class="who" id="who"></span>
+      <button id="submit" disabled>답안 제출</button>
+    </div>
+
+    <div class="result" id="result"></div>
+  </div>
+</div>
+
+<script>
+  const q = new URLSearchParams(location.search);
+  const questionId = q.get('questionId');
+  const email = q.get('email');
+  const startedAt = Date.now();
+
+  const $ = id => document.getElementById(id);
+  $('who').textContent = email ? email + ' 님' : '';
+
+  // 1) 질문 불러오기
+  fetch('/api/questions/' + questionId)
+    .then(r => r.json())
+    .then(res => {
+      const d = res.data;
+      $('qtitle').textContent = d.title;
+      $('qcontent').textContent = d.content;
+      const b = $('qbadge');
+      b.textContent = d.category;
+      if (d.category !== 'BACKEND') b.classList.add('fe');
+      $('submit').disabled = false;
+    })
+    .catch(() => { $('qtitle').textContent = '질문을 불러오지 못했습니다.'; });
+
+  // 2) 답안 제출 → 채점 → 피드백 메일 발송(서버에서)
+  $('submit').addEventListener('click', () => {
+    $('submit').disabled = true;
+    fetch('/api/answers', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        questionId: Number(questionId),
+        submittedText: $('answer').value,
+        responseTimeMs: Date.now() - startedAt,
+        userEmail: email
+      })
+    })
+    .then(r => r.json())
+    .then(res => {
+      const d = res.data;
+      const box = $('result');
+      box.style.display = 'block';
+      box.className = 'result ' + (d.isCorrect ? 'ok' : 'no');
+      box.innerHTML = '<b>' + (d.isCorrect ? '정답입니다 ✓' : '오답입니다') + '</b>'
+        + d.message
+        + '<div class="muted" style="margin-top:8px">결과와 다음 학습 안내를 <b>' + email + '</b> 메일로 보냈어요. 받은편지함을 확인하세요.</div>';
+    })
+    .catch(() => { $('submit').disabled = false; alert('제출에 실패했습니다.'); });
+  });
+</script>
+</body>
+</html>
